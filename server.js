@@ -9,6 +9,10 @@ const root         = __dirname;
 const port         = process.env.PORT || 8080;
 const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 const COOKIE_NAME  = "emma_session";
+const DEVICE_COOKIE = "emma_device";
+const MAX_DEVICES   = 2;
+const ADMIN_SECRET  = process.env.ADMIN_SECRET || "4be2e609bb541c275702ddc107f24bd5fec80b6e157dc4aa";
+const DEVICES_FILE  = "/tmp/emma_devices.json";
 
 // ─── Base de usuarios (variable de entorno USERS_DB como JSON array) ─────────
 // Formato: [{"email":"cliente@empresa.com","key":"EMMA-XXXX-YY-HHHHHH","name":"Nombre","active":true}]
@@ -41,6 +45,34 @@ function validateKey(key) {
   if (yr < cy) return false; // clave vencida
   const exp = fnv(p[1] + p[2] + _LS) & 0xFFFFFF;
   return exp === parseInt(p[3], 16);
+}
+
+// ─── Registro de dispositivos ─────────────────────────────────────────────────
+// email → [deviceId, ...]  (máx. MAX_DEVICES por usuario)
+// Persiste en /tmp entre requests; se limpia en cada redeploy.
+let deviceRegistry = {};
+try {
+  if (fs.existsSync(DEVICES_FILE))
+    deviceRegistry = JSON.parse(fs.readFileSync(DEVICES_FILE, "utf8"));
+} catch {}
+
+function saveDevices() {
+  try { fs.writeFileSync(DEVICES_FILE, JSON.stringify(deviceRegistry), "utf8"); } catch {}
+}
+function getDevices(email)          { return deviceRegistry[email.toLowerCase()] || []; }
+function deviceCount(email)         { return getDevices(email).length; }
+function hasDevice(email, devId)    { return getDevices(email).includes(devId); }
+function registerDevice(email, devId) {
+  const em = email.toLowerCase();
+  if (!deviceRegistry[em]) deviceRegistry[em] = [];
+  if (!deviceRegistry[em].includes(devId)) {
+    deviceRegistry[em].push(devId);
+    saveDevices();
+  }
+}
+function clearDevices(email) {
+  delete deviceRegistry[email.toLowerCase()];
+  saveDevices();
 }
 
 // ─── Sesiones en memoria ──────────────────────────────────────────────────────
@@ -78,6 +110,9 @@ function parseCookies(req) {
 }
 function makeCookie(token, maxAge) {
   return `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`;
+}
+function makeDeviceCookie(devId) {
+  return `${DEVICE_COOKIE}=${devId}; HttpOnly; SameSite=Strict; Max-Age=${365 * 24 * 3600}; Path=/`;
 }
 
 // ─── MIME types ───────────────────────────────────────────────────────────────
@@ -191,6 +226,36 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 401, { error: "Credenciales incorrectas o licencia inactiva." });
     }
 
+    // ── Restricción de dispositivos (máx. MAX_DEVICES) ────────────────────
+    let devId       = cookies[DEVICE_COOKIE];
+    const isNewDev  = !devId || !/^[0-9a-f-]{36}$/.test(devId);
+    if (isNewDev) devId = crypto.randomUUID();
+
+    const extraHeaders = {};
+
+    if (!hasDevice(email, devId)) {
+      // Dispositivo no registrado aún
+      if (deviceCount(email) >= MAX_DEVICES) {
+        return sendJSON(res, 403, {
+          error: `Esta licencia ya está activada en ${MAX_DEVICES} dispositivos. ` +
+                 `Contacta a soporte@emma-presupuestos.com para liberar un dispositivo.`
+        });
+      }
+      registerDevice(email, devId);
+    }
+
+    if (isNewDev) {
+      // Enviar cookie de dispositivo junto con la de sesión
+      const token   = createSession(user.email, user.name || email, user.key);
+      const sessCk  = makeCookie(token, Math.floor(SESSION_TTL / 1000));
+      const devCk   = makeDeviceCookie(devId);
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Set-Cookie"  : [sessCk, devCk],
+      });
+      return res.end(JSON.stringify({ ok: true, name: user.name || email }));
+    }
+
     const token  = createSession(user.email, user.name || email, user.key);
     const cookie = makeCookie(token, Math.floor(SESSION_TTL / 1000));
     return sendJSON(res, 200, { ok: true, name: user.name || email }, { "Set-Cookie": cookie });
@@ -234,6 +299,35 @@ const server = http.createServer(async (req, res) => {
     const filePath = path.resolve(root, pathname.replace(/^\/+/, ""));
     if (!filePath.startsWith(root)) { res.writeHead(403); res.end("Forbidden"); return; }
     return sendFile(res, filePath);
+  }
+
+  // ── POST /api/admin/reset-devices ─────────────────────────────────────────
+  // Requiere: Authorization: Bearer <ADMIN_SECRET>
+  // Body: { "email": "usuario@empresa.com" }
+  if (method === "POST" && pathname === "/api/admin/reset-devices") {
+    const auth = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim();
+    if (auth !== ADMIN_SECRET) {
+      return sendJSON(res, 401, { error: "No autorizado." });
+    }
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const target = (body.email || "").toLowerCase().trim();
+    if (!target) return sendJSON(res, 400, { error: "email requerido." });
+    clearDevices(target);
+    console.log(`[Emma] Dispositivos reseteados para: ${target}`);
+    return sendJSON(res, 200, { ok: true, message: `Dispositivos liberados para ${target}.` });
+  }
+
+  // ── GET /api/admin/devices ─────────────────────────────────────────────────
+  // Devuelve cuántos dispositivos tiene cada usuario (sin IDs)
+  if (method === "GET" && pathname === "/api/admin/devices") {
+    const auth = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim();
+    if (auth !== ADMIN_SECRET) return sendJSON(res, 401, { error: "No autorizado." });
+    const summary = {};
+    for (const [em, devs] of Object.entries(deviceRegistry)) {
+      summary[em] = devs.length;
+    }
+    return sendJSON(res, 200, summary);
   }
 
   // ── 404 ───────────────────────────────────────────────────────────────────
