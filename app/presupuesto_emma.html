@@ -1222,12 +1222,13 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
 
 /* ============ PRINT ============ */
 @media print {
-  @page { margin: 14mm 12mm; }
+  @page { margin: 14mm 12mm 22mm; @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
   body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .shell { margin: 0; border: none; box-shadow: none; max-width: none; }
   .head, .toolbar, .view-tabs, .app-view, .totals, .footer, .modal-bg, .ins-panel-bg, .toast { display: none !important; }
   .partida-block-print { display: block !important; break-inside: avoid; margin: 14px 0; }
   .print-totals { break-inside: avoid; margin: 16px 0 0; }
+  .print-footer { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #D3D1C7; padding: 9px 12mm; font-size: 9.5px; color: #5F5E5A; }
 }
 .print-only { display: none; }
 @media print {
@@ -1280,6 +1281,10 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <label>Fecha</label>
         <input type="date" id="f-fecha">
       </div>
+      <div class="field">
+        <label>Responsable</label>
+        <input type="text" id="f-responsable" placeholder="Nombre del responsable">
+      </div>
     </div>
   </header>
 
@@ -1300,6 +1305,8 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       <button class="btn btn-sm" onclick="exportInsumosList()">↓ Insumos</button>
       <button class="btn btn-sm" onclick="exportConceptBreakdowns()">↓ Desglose</button>
       <button class="btn btn-sm" onclick="exportConceptBreakdownsPdf()">↓ Análisis P.U.</button>
+      <button class="btn btn-sm" onclick="exportAPUDirect()">↓ Generar PDF APU</button>
+      <button class="btn btn-sm" onclick="exportPresupuestoCD()">⎙ Pres. Costo Directo</button>
       <button class="btn btn-sm" onclick="printBudget()">⎙ Imprimir</button>
       <input type="file" id="backupInput" accept=".emma,.json,application/json,application/octet-stream" style="display:none">
     </div>
@@ -1349,6 +1356,10 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <div class="tot-row muted"><span class="lbl">Mano de obra + Equipo</span><span class="val" id="t-mo">$0.00</span></div>
         <div class="tot-row"><span class="lbl"><strong>Costo directo</strong></span><span class="val"><strong id="t-dir">$0.00</strong></span></div>
         <div class="tot-row muted"><span class="lbl">Costos Indirectos <span id="t-ci-porc" style="font-size:11px;color:var(--gold-dk)">(0.00%)</span></span><span class="val" id="t-ci">$0.00</span></div>
+        <div class="tot-row muted">
+          <span class="lbl">CF Financiamiento <input type="number" id="adj-cf" value="0" min="0" max="30" step="0.1" title="% aplicado sobre (CD+CI) — igual que en el APU" oninput="STATE.ci.cfPorc=parseFloat(this.value)||0; recalcTotals(); save()">%</span>
+          <span class="val" id="t-cf">$0.00</span>
+        </div>
         <div class="tot-row">
           <span class="lbl">Imprevistos <input type="number" id="adj-imp" value="5" min="0" max="50" step="0.5" oninput="recalcTotals(); save()">%</span>
           <span class="val" id="t-imp">$0.00</span>
@@ -1367,6 +1378,11 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   </section>
 
   <div class="print-only" id="printArea"></div>
+  <div class="print-only print-footer" id="printFooter">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div><span id="printResponsable"></span><span style="margin-left:36px">Firma: __________________________________</span></div>
+    </div>
+  </div>
 
   <section class="app-view insumos-list screen-only" id="insumosView">
     <div class="insumos-list-head">
@@ -1381,8 +1397,11 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <button class="filter-chip" id="filter-O" onclick="setInsumoFilter('O')">Mano de obra</button>
         <button class="filter-chip" id="filter-E" onclick="setInsumoFilter('E')">Equipo</button>
         <button class="btn btn-sm" onclick="exportInsumosList()">Exportar</button>
+        <button class="btn btn-sm" onclick="printInsumosList()">⎙ Imprimir</button>
         <button class="btn btn-sm" onclick="exportConceptBreakdowns()">Desglose conceptos</button>
         <button class="btn btn-sm" onclick="exportConceptBreakdownsPdf()">↓ Análisis P.U.</button>
+        <button class="btn btn-sm" onclick="exportAPUDirect()">↓ Generar PDF APU</button>
+        <button class="btn btn-sm" onclick="exportPresupuestoCD()">⎙ Pres. Costo Directo</button>
       </div>
     </div>
     <div id="insumosListBody"></div>
@@ -1639,20 +1658,36 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <span><strong>Con IVA Materiales</strong> — CD → CI → CU → IVA en Materiales</span>
       </label>
     </div>
-    <div id="puFmt-cf-row" style="margin-bottom:20px;padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CI) Indirectos %</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="puFmt-ci" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
+          <span style="font-size:11px;color:#5F5E5A">% del CD</span>
+        </div>
+      </div>
+      <div style="padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CU) Utilidad %</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="puFmt-cu" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
+          <span style="font-size:11px;color:#5F5E5A">% del Subtotal</span>
+        </div>
+      </div>
+    </div>
+    <div id="puFmt-cf-row" style="margin-bottom:16px;padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
       <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CF) Financiamiento %</label>
       <div style="display:flex;align-items:center;gap:8px">
-        <input id="puFmt-cf" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:110px;background:white;outline:none;font-family:inherit">
+        <input id="puFmt-cf" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
         <span style="font-size:12px;color:#5F5E5A">% del Subtotal 1 (CD + CI)</span>
       </div>
     </div>
-    <div style="margin-bottom:16px;padding:10px 14px;background:#E1F5EE;border:1px solid #b2dece;font-size:12px;color:#1D6B52">
-      <strong>CI%:</strong> <span id="puFmt-ci-preview">—</span> &nbsp;|&nbsp; <strong>CU%:</strong> <span id="puFmt-cu-preview">—</span>
-      <span style="color:#5F5E5A;margin-left:4px">(valores del módulo CI/Indirectos)</span>
+    <div style="margin-bottom:16px;padding:8px 14px;background:#FFF8EC;border:1px solid #E8D9B0;font-size:11px;color:#7A6030">
+      Los valores de CI% y CU% se pre-llenan desde el módulo de Indirectos. Puedes ajustarlos aquí sin modificar el módulo.<br>
+      <span style="color:#8B3A3A;font-weight:700">Para generar el PDF APU usa el botón "↓ Generar PDF APU" de la barra de herramientas.</span>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="closePUFormatModal()" style="padding:9px 20px;background:white;border:1px solid #D3D1C7;font-size:13px;cursor:pointer;font-family:inherit">Cancelar</button>
-      <button onclick="confirmPUFormat()" style="padding:9px 20px;background:#C8A96E;color:white;border:1px solid #A88748;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Generar PDF</button>
+      <button onclick="confirmCalcPresupuesto()" style="padding:9px 20px;background:#1D9E75;color:white;border:1px solid #167A5B;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✓ Calcular Presupuesto</button>
     </div>
   </div>
 </div>
@@ -1733,7 +1768,7 @@ const BASE_INFO = {
 };
 
 // ========================================================
-// LICENCIA OFFLINE
+// LICENCIA OFFLINE + CONTROL DE DISPOSITIVO
 // ========================================================
 function _h(s) { // FNV-1a 32-bit
   let h = 0x811c9dc5;
@@ -1742,8 +1777,36 @@ function _h(s) { // FNV-1a 32-bit
 }
 const _LS = 'emPrj-X7Q2-2024';
 const EMMA_SERVER = 'https://emma-server-production.up.railway.app';
+const MAX_REBINDS = 3;
 
 function getLicenseKey() { return (localStorage.getItem('emma_license_key') || '').trim().toUpperCase(); }
+function getLicenseClientCode() { const p = getLicenseKey().split('-'); return p.length === 4 ? p[1] : null; }
+
+function getDeviceFP() {
+  const os = (navigator.userAgent.match(/Windows NT [\d.]+|Mac OS X [\d_]+|Linux(?= )|Android [\d.]+|CrOS/) || ['?'])[0];
+  const tz = (Intl && Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : '') || '';
+  const parts = [os, navigator.language || '', navigator.hardwareConcurrency || 0,
+    screen.width + 'x' + screen.height, screen.colorDepth || 0, tz];
+  return _h(parts.join('|')).toString(16).toUpperCase().padStart(8, '0');
+}
+function _fpKey(k) { return 'emma_fp_' + _h(k).toString(16); }
+function _rbKey(k) { return 'emma_rb_' + _h(k).toString(16); }
+function bindDevice(key) {
+  const stored = localStorage.getItem(_fpKey(key));
+  const current = getDeviceFP();
+  if (stored && stored !== current) {
+    const rb = parseInt(localStorage.getItem(_rbKey(key)) || '0');
+    localStorage.setItem(_rbKey(key), String(rb + 1));
+  }
+  localStorage.setItem(_fpKey(key), current);
+}
+function checkDeviceBinding(key) {
+  const stored = localStorage.getItem(_fpKey(key));
+  if (!stored) return 'first';
+  if (stored === getDeviceFP()) return 'ok';
+  const rb = parseInt(localStorage.getItem(_rbKey(key)) || '0');
+  return rb >= MAX_REBINDS ? 'blocked' : 'mismatch';
+}
 
 function validateLicenseKey(key) {
   if (!key) return false;
@@ -1788,6 +1851,42 @@ function changeLicense() {
     location.reload();
   }
 }
+function showDeviceMismatch(key) {
+  const errEl = document.getElementById('emma-loading-err');
+  const btnEl = document.getElementById('emma-change-lic');
+  const rb = parseInt(localStorage.getItem(_rbKey(key)) || '0');
+  const remaining = MAX_REBINDS - rb;
+  if (errEl) {
+    errEl.innerHTML = `Este dispositivo no está registrado para esta licencia.<br><br>
+      <button onclick="rebindAndStart()" style="background:#C8A96E;color:white;border:none;border-radius:7px;padding:9px 22px;font-size:13px;cursor:pointer;font-weight:700;margin-right:8px">
+        Activar en este dispositivo (${remaining} restante${remaining===1?'':'s'})
+      </button>
+      <button onclick="changeLicense()" style="background:none;color:#888;border:1px solid #ccc;border-radius:7px;padding:9px 16px;font-size:13px;cursor:pointer">
+        Cambiar clave
+      </button>`;
+    errEl.style.display = 'block';
+  }
+  if (btnEl) btnEl.style.display = 'none';
+}
+function rebindAndStart() {
+  const key = getLicenseKey();
+  bindDevice(key);
+  const errEl = document.getElementById('emma-loading-err');
+  if (errEl) errEl.style.display = 'none';
+  showLoading('Iniciando…');
+  startInit();
+}
+function showDeviceBlocked() {
+  const errEl = document.getElementById('emma-loading-err');
+  const btnEl = document.getElementById('emma-change-lic');
+  if (errEl) {
+    errEl.innerHTML = `Límite de reasignaciones de dispositivo alcanzado.<br>
+      Contacte a su proveedor para renovar su licencia.<br><br>
+      <span style="font-size:11px;color:#aaa;font-family:monospace">${getLicenseKey()}</span>`;
+    errEl.style.display = 'block';
+  }
+  if (btnEl) btnEl.style.display = 'block';
+}
 function submitLicense() {
   const input = document.getElementById('emma-key-input');
   const key   = (input ? input.value : '').trim().toUpperCase();
@@ -1800,6 +1899,7 @@ function submitLicense() {
   if (errEl) errEl.style.display = 'none';
   if (input) input.style.borderColor = '#52A96E';
   localStorage.setItem('emma_license_key', key);
+  bindDevice(key); // vincular este dispositivo a la licencia
   showLoading('Verificando con servidor…');
   validarConServidor(key);
 }
@@ -1844,7 +1944,7 @@ function startInit() {
   I_DICT      = window.INSUMOS_DICT      || {};
   I_BREAKDOWN = window.INSUMOS_BREAKDOWN || {};
   hideLoading();
-  // Badge de licencia + botón de logout en header
+  // Mostrar código de licencia en el header
   const _lc = getLicenseClientCode();
   const _lb = document.getElementById('lic-badge');
   if (_lb && _lc) { _lb.textContent = `Lic. ${_lc}`; _lb.style.display = 'block'; }
@@ -2063,9 +2163,12 @@ function ciDefaultState() {
     porcCentral:  CI_PORC_CENTRAL_DEF.map(x => ({...x})),
     porcCampo:    CI_PORC_CAMPO_DEF.map(x => ({...x})),
     utilPorc: 6.0, isr: 30.0, ptu: 10.0,
+    cfPorc: 0,         // CF Financiamiento % (aplicado sobre Sub1 = CD+CI en cascada)
+    apuFormat: 'cascada',  // formato APU activo: 'cascada' | 'unico' | 'iva'
     montoCentral:0, montoCampo:0, montoTotal:0,
     porcTotalCentral:0, porcTotalCampo:0, porcTotal:0,
     utilNetPorc:0, utilAmt:0,
+    cfAmt:0, utilAmtCascade:0,   // valores cascada (calculados en recalcTotals)
   };
 }
 
@@ -2074,7 +2177,7 @@ function ciDefaultState() {
 // ========================================================
 const STATE = {
   rows: {},
-  meta: { empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'' },
+  meta: { empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'', responsable:'' },
   imprevistos: 5, iva: 0,
   fasar: cloneFasar(DEFAULT_FASAR),
   ci: ciDefaultState(),
@@ -2082,6 +2185,7 @@ const STATE = {
 };
 PARTIDAS.forEach(([l]) => STATE.rows[l] = []);
 let activePartida = 'A';
+let currentFactor = 1;   // factor CD→PU con indirectos; se actualiza en recalcTotals()
 let pickerScope = null;
 let activeInsumos = null;
 let activeView = 'presupuesto';
@@ -2142,7 +2246,7 @@ function load() {
       PARTIDAS.forEach(([l]) => { if (!d.rows[l]) d.rows[l] = []; });
       STATE.rows = d.rows;
     }
-    STATE.meta = Object.assign({ empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'' }, d.meta || {});
+    STATE.meta = Object.assign({ empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'', responsable:'' }, d.meta || {});
     STATE.imprevistos = d.imp ?? 5;
     STATE.iva = 0;
     STATE.fasar = normalizeFasar(d.fasar);
@@ -2165,7 +2269,7 @@ function resetData() {
   STATE.customPartidas = [];
   STATE.rows = {};
   PARTIDAS.forEach(([l]) => STATE.rows[l] = []);
-  STATE.meta = { empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'' };
+  STATE.meta = { empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'', responsable:'' };
   STATE.imprevistos = 5; STATE.iva = 0;
   STATE.fasar = cloneFasar(DEFAULT_FASAR);
   STATE.ci = ciDefaultState();
@@ -2213,7 +2317,7 @@ function restoreSnapshot(data) {
   const rows = {};
   PARTIDAS.forEach(([l]) => rows[l] = Array.isArray(data.rows[l]) ? data.rows[l] : []);
   STATE.rows = rows;
-  STATE.meta = Object.assign({ empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'' }, data.meta || {});
+  STATE.meta = Object.assign({ empresa:'', cliente:'', obra:'', ubicacion:'', fecha:'', logo:'', responsable:'' }, data.meta || {});
   STATE.imprevistos = data.imp ?? 5;
   STATE.iva = 0;
   STATE.fasar = normalizeFasar(data.fasar);
@@ -2772,7 +2876,7 @@ function renderSidebar() {
   const list = document.getElementById('sideList');
   list.innerHTML = PARTIDAS.map(([l, n]) => {
     const rows = STATE.rows[l] || [];
-    const subtotal = rows.reduce((s,r) => s + (r.p * r.qty), 0);
+    const subtotal = rows.reduce((s,r) => s + (r.p * currentFactor * r.qty), 0);
     const cls = ['partida-btn'];
     if (l === activePartida) cls.push('active');
     if (rows.length > 0) cls.push('has-items');
@@ -2906,7 +3010,7 @@ function renderPanel() {
   rows.forEach((r, idx) => {
     const lineMat = (r.mat || 0) * r.qty;
     const lineMo  = (r.mo  || 0) * r.qty;
-    const lineTotal = (r.p || 0) * r.qty;
+    const lineTotal = (r.p || 0) * currentFactor * r.qty;
     pMat += lineMat; pMo += lineMo; pTotal += lineTotal;
     html += renderConceptRow(r, idx, startNo + idx);
   });
@@ -2929,7 +3033,8 @@ function renderPanel() {
 }
 
 function renderConceptRow(r, idx, visibleNo) {
-  const lineTotal = (r.p || 0) * r.qty;
+  const puDisplay = round2((r.p || 0) * currentFactor);  // P.U. con indirectos aplicados
+  const lineTotal = puDisplay * r.qty;
   const isModified = !r.libre && r.p_orig != null && Math.abs(r.p - r.p_orig) > 0.005;
   const subText = r.libre
     ? `<span class="desc-sub">Concepto libre</span>`
@@ -2953,7 +3058,7 @@ function renderConceptRow(r, idx, visibleNo) {
     ? `<button class="btn-insumos" onclick="toggleInsumos(${idx})" title="Ver desglose de insumos">⚒ insumos</button>`
     : '';
   const resetHtml = isModified
-    ? `<button class="btn-reset" id="reset-${idx}" onclick="resetPrice(${idx})" title="Restaurar precio original">↺ ${fmt(r.p_orig)}</button>`
+    ? `<button class="btn-reset" id="reset-${idx}" onclick="resetPrice(${idx})" title="Restaurar precio original">↺ ${fmt(round2((r.p_orig||0) * currentFactor))}</button>`
     : `<button class="btn-reset" id="reset-${idx}" onclick="resetPrice(${idx})" style="display:none"></button>`;
 
   return `<tr class="concept-row" id="row-${idx}">
@@ -2963,7 +3068,7 @@ function renderConceptRow(r, idx, visibleNo) {
     <td class="col-unit">${unitHtml}</td>
     <td class="col-cant"><input type="number" inputmode="decimal" class="cell-input" min="0" step="any" value="${r.qty}" oninput="onQtyInput(${idx}, this.value)"></td>
     <td class="col-pu">
-      <input type="number" inputmode="decimal" class="cell-input ${isModified ? 'modified' : ''}" id="pu-${idx}" min="0" step="any" value="${r.p}" oninput="onPUInput(${idx}, this.value)">
+      <input type="number" inputmode="decimal" class="cell-input ${isModified ? 'modified' : ''}" id="pu-${idx}" min="0" step="any" value="${puDisplay}" oninput="onPUInput(${idx}, this.value)">
       ${resetHtml}
     </td>
     <td class="col-imp" id="imp-${idx}">${fmt(lineTotal)}</td>
@@ -3073,7 +3178,7 @@ function onQtyInput(idx, val) {
   r.qty = isNaN(n) ? 0 : Math.max(0, n);
   // surgical update: importe of this row + totals
   const elImp = document.getElementById(`imp-${idx}`);
-  if (elImp) elImp.textContent = fmt(r.qty * r.p);
+  if (elImp) elImp.textContent = fmt(r.qty * r.p * currentFactor);
   recalcAfterEdit();
   save();
 }
@@ -3081,19 +3186,23 @@ function onQtyInput(idx, val) {
 function onPUInput(idx, val) {
   const r = STATE.rows[activePartida][idx];
   const n = parseFloat(val);
+  // safe = precio con indirectos que tecleó el usuario
   const safe = isNaN(n) ? 0 : Math.max(0, n);
   if (!r.libre && r.p_orig == null) {
     r.p_orig = r.p; r.mat_orig = r.mat; r.mo_orig = r.mo;
   }
   if (!r.libre && r.p_orig > 0) {
-    const ratio = safe / r.p_orig;
+    // ratio basado en APU original vs APU nuevo
+    const origAPU = r.p_orig * currentFactor;
+    const ratio = origAPU > 0 ? safe / origAPU : 1;
     r.mat = round2(r.mat_orig * ratio);
     r.mo  = round2(r.mo_orig  * ratio);
   }
-  r.p = safe;
+  // Guardar como costo directo (back-convert del precio con indirectos)
+  r.p = currentFactor > 0 ? round2(safe / currentFactor) : safe;
   // Surgical updates
   const elImp = document.getElementById(`imp-${idx}`);
-  if (elImp) elImp.textContent = fmt(r.qty * r.p);
+  if (elImp) elImp.textContent = fmt(r.qty * safe);   // importe = qty × precio con indirectos
   const elSub = document.getElementById(`sub-${idx}`);
   if (elSub && !r.libre) elSub.textContent = `Mat: ${fmt(r.mat)} · MO+Eq: ${fmt(r.mo)}`;
   // Toggle 'modified' class & reset link visibility
@@ -3104,7 +3213,7 @@ function onPUInput(idx, val) {
   if (elReset) {
     if (isMod) {
       elReset.style.display = 'block';
-      elReset.textContent = `↺ ${fmt(r.p_orig)}`;
+      elReset.textContent = `↺ ${fmt(round2((r.p_orig||0) * currentFactor))}`;  // muestra precio APU original
     } else {
       elReset.style.display = 'none';
     }
@@ -3127,21 +3236,21 @@ function resetPrice(idx) {
   }
   // If insumos were loaded and edited, also reset them
   delete r.insumos; delete r.insumos_modified;
-  renderPanel(); recalcTotals(); renderSidebar(); save();
+  recalcTotals(); renderPanel(); renderSidebar(); save();
   toast('Precio restaurado');
 }
 
 function delRow(idx) {
   STATE.rows[activePartida].splice(idx, 1);
   if (activeInsumos && activeInsumos.letter === activePartida) closeInsumosPanel();
-  renderPanel(); recalcTotals(); renderSidebar(); save();
+  recalcTotals(); renderPanel(); renderSidebar(); save();
 }
 
 function clearAll() {
   if (!Object.values(STATE.rows).some(r => r.length)) return;
   if (!confirm('¿Borrar todos los conceptos del presupuesto?')) return;
   PARTIDAS.forEach(([l]) => STATE.rows[l] = []);
-  renderPanel(); recalcTotals(); renderSidebar(); save();
+  recalcTotals(); renderPanel(); renderSidebar(); save();
 }
 
 function addFreeRow() {
@@ -3150,7 +3259,7 @@ function addFreeRow() {
     mat: 0, mo: 0, p: 0, qty: 1,
     libre: true,
   });
-  renderPanel(); recalcTotals(); renderSidebar(); save();
+  recalcTotals(); renderPanel(); renderSidebar(); save();
   toast('Fila libre agregada — completa la descripción y precio');
 }
 
@@ -3626,6 +3735,7 @@ function switchView(view) {
     if (viewEl) viewEl.classList.toggle('active', v === view);
     if (tabEl)  tabEl.classList.toggle('active', v === view);
   });
+  if (view === 'presupuesto') { recalcTotals(); renderSidebar(); renderPanel(); }
   if (view === 'insumos')     renderInsumosList();
   if (view === 'basicos')     renderBasicosList();
   if (view === 'fasar')       renderFasarSummary();
@@ -3696,6 +3806,34 @@ function recalcConceptFromInsumos(rowIdx) {
   recalcAfterEdit(letter);
 }
 
+// Propaga el cambio de costo a TODOS los conceptos que usan el mismo código de insumo.
+// Retorna el número de conceptos actualizados (incluyendo el actual).
+function propagateInsumoCost(cod, newCs) {
+  if (!cod) return 0;
+  let conceptCount = 0;
+  PARTIDAS.forEach(([letter]) => {
+    STATE.rows[letter].forEach(r => {
+      // Si los insumos no están cargados aún, verificar en I_BREAKDOWN antes de cargar
+      if (!r.insumos) {
+        const bd = I_BREAKDOWN[r.cod] || [];
+        if (!bd.some(i => i.cod === cod)) return;
+        loadInsumosForRow(r);
+      }
+      if (!r.insumos) return;
+      let changed = false;
+      r.insumos.forEach(i => {
+        if (i.cod !== cod || isGlobalMoPercentInsumo(i)) return;
+        i.cs = newCs;
+        if (i.t === 'O') i.custom = true; // evitar reset por recalcInsumoAmounts
+        i.i = round2(i.op === '/' ? (i.q ? newCs / i.q : 0) : newCs * (i.q || 0));
+        changed = true;
+      });
+      if (changed) { recalcRowFromCurrentInsumos(r); conceptCount++; }
+    });
+  });
+  return conceptCount;
+}
+
 function onInsumoChange(rowIdx, insIdx, field, val) {
   const r = getInsumoEditRow(rowIdx);
   if (!r?.insumos) return;
@@ -3714,8 +3852,16 @@ function onInsumoChange(rowIdx, insIdx, field, val) {
   // Surgical update: insumo importe cell
   const elImp = document.getElementById(`ins-imp-${rowIdx}-${insIdx}`);
   if (elImp) elImp.textContent = fmt(i.i);
-  // Recompute parent concept
-  recalcConceptFromInsumos(rowIdx);
+  // Propagación automática: si cambia el costo y hay código, actualizar todos los conceptos
+  if (field === 'cs' && i.cod && !isGlobalMoPercentInsumo(i)) {
+    const affected = propagateInsumoCost(i.cod, i.cs);
+    recalcConceptFromInsumos(rowIdx); // actualización quirúrgica del panel actual
+    renderPanel();
+    renderInsumosList();
+    if (affected > 1) toast(`Precio propagado · ${affected} concepto${affected === 1 ? '' : 's'} actualizados`);
+  } else {
+    recalcConceptFromInsumos(rowIdx);
+  }
   save();
 }
 
@@ -3806,7 +3952,7 @@ function addFromPicker(flatIdx) {
   });
   if (c._letter !== activePartida) activePartida = c._letter;
   closePicker();
-  renderSidebar(); renderPanel(); recalcTotals(); save();
+  recalcTotals(); renderSidebar(); renderPanel(); save();
   toast(`Agregado a Partida ${c._letter} · ${NAME_BY_LETTER[c._letter]}`);
 }
 
@@ -3814,16 +3960,27 @@ function addFromPicker(flatIdx) {
 // META BINDING
 // ========================================================
 function bindMeta() {
-  ['empresa','cliente','obra','ubicacion','fecha'].forEach(k => {
+  ['empresa','cliente','obra','ubicacion','fecha','responsable'].forEach(k => {
     const el = document.getElementById('f-'+k);
-    el.addEventListener('input', () => { STATE.meta[k] = el.value; save(); });
+    el.addEventListener('input', () => {
+      STATE.meta[k] = el.value;
+      if (k === 'responsable') {
+        const rf = document.getElementById('printResponsable');
+        if (rf) rf.textContent = el.value ? `Responsable: ${el.value}` : '';
+      }
+      save();
+    });
   });
 }
 function hydrateMeta() {
-  ['empresa','cliente','obra','ubicacion','fecha'].forEach(k => {
+  ['empresa','cliente','obra','ubicacion','fecha','responsable'].forEach(k => {
     document.getElementById('f-'+k).value = STATE.meta[k] || '';
   });
+  const rf = document.getElementById('printResponsable');
+  if (rf) rf.textContent = STATE.meta.responsable ? `Responsable: ${STATE.meta.responsable}` : '';
   document.getElementById('adj-imp').value = STATE.imprevistos;
+  const adjCfEl = document.getElementById('adj-cf');
+  if (adjCfEl) adjCfEl.value = (STATE.ci.cfPorc || 0);
   document.getElementById('dateLabel').textContent =
     new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' }) +
     ' · Base ' + BASE_INFO.version;
@@ -3837,13 +3994,15 @@ function hydrateMeta() {
 // ========================================================
 function recalcAfterEdit(letterArg = activePartida) {
   // Update partida sidebar amount + partida subtotal bar
+  // recalcTotals primero para actualizar currentFactor antes de los totales de partida
+  recalcTotals();
   const letter = letterArg;
   const rows = STATE.rows[letter];
   let mat=0, mo=0, total=0;
   rows.forEach(r => {
-    mat += (r.mat||0) * r.qty;
-    mo  += (r.mo ||0) * r.qty;
-    total += (r.p ||0) * r.qty;
+    mat   += (r.mat||0) * r.qty;
+    mo    += (r.mo ||0) * r.qty;
+    total += (r.p ||0) * currentFactor * r.qty;   // P.U. con indirectos
   });
   const elSide = document.getElementById(`psub-side-${letter}`);
   if (elSide) elSide.textContent = fmtCompact(total);
@@ -3851,7 +4010,6 @@ function recalcAfterEdit(letterArg = activePartida) {
   if (elDetail) elDetail.textContent = `Mat ${fmt(mat)} · MO+Eq ${fmt(mo)}`;
   const elAmt = document.getElementById(`psub-amt-${letter}`);
   if (elAmt) elAmt.textContent = fmt(total);
-  recalcTotals();
   renderInsumosList();
 }
 
@@ -3869,11 +4027,27 @@ function recalcTotals() {
   const directo = totP;
   const ivaImplicito = totMat * 16 / 116;
   recalcCI(directo);
-  const ciAmt   = STATE.ci.montoTotal;
+
+  // ── Cascada correcta: CD → CI → CF → CU (igual que el APU) ──────────────
+  const adjCfEl2 = document.getElementById('adj-cf');
+  if (adjCfEl2 && document.activeElement !== adjCfEl2) adjCfEl2.value = (STATE.ci.cfPorc || 0);
+
+  const ciAmt   = STATE.ci.montoTotal;          // CI sobre CD
+  const sub1    = directo + ciAmt;              // Subtotal 1 = CD + CI
+  const cfPorc  = STATE.ci.cfPorc || 0;
+  const cfAmt   = sub1 * cfPorc / 100;          // CF sobre Sub1
+  const sub2    = sub1 + cfAmt;                 // Subtotal 2 = Sub1 + CF
+  const cuPorc  = STATE.ci.utilNetPorc;
+  const utilAmt = sub2 * cuPorc / 100;          // Utilidad sobre Sub2 (cascada real)
   const impAmt  = directo * STATE.imprevistos / 100;
-  const utilAmt = STATE.ci.utilAmt;
-  const total   = directo + ciAmt + impAmt + utilAmt;
-  const factor  = directo > 0 ? total / directo : 1;
+
+  // Guardar valores cascada en STATE para renderPrintArea y exports
+  STATE.ci.cfAmt          = cfAmt;
+  STATE.ci.utilAmtCascade = utilAmt;
+
+  // Factor cascada: (1+CI%)×(1+CF%)×(1+CU%)  — coincide exactamente con APU
+  currentFactor = directo > 0 ? (sub2 + utilAmt) / directo : 1;
+  const total   = directo * currentFactor + impAmt;
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('t-mat',  fmt(totMat));
@@ -3882,10 +4056,10 @@ function recalcTotals() {
   set('t-dir',  fmt(directo));
   set('t-ci',   fmt(ciAmt));
   set('t-ci-porc', '(' + STATE.ci.porcTotal.toFixed(2) + '%)');
-  set('t-imp',  fmt(impAmt));
+  set('t-cf',   fmt(cfAmt));
   set('t-util', fmt(utilAmt));
-  set('t-util-porc', '(' + STATE.ci.utilNetPorc.toFixed(2) + '%)');
-  set('t-factor', factor.toFixed(4));
+  set('t-util-porc', '(' + cuPorc.toFixed(2) + '%)');
+  set('t-factor', currentFactor.toFixed(4));
   set('t-total', fmt(total));
   document.getElementById('rowCount').textContent = count;
   document.getElementById('totalLbl').textContent = fmt(total);
@@ -3893,7 +4067,7 @@ function recalcTotals() {
   const partidaBox = document.getElementById('partidaTotalsBox');
   if (partidaBox) {
     const rows = PARTIDAS.map(([l, n]) => {
-      const sub = STATE.rows[l].reduce((s,r) => s + (r.p || 0) * r.qty, 0);
+      const sub = STATE.rows[l].reduce((s,r) => s + (r.p || 0) * currentFactor * r.qty, 0);
       return sub > 0 ? `<div class="partida-total-row"><span>${l} · ${escHtml(n)}</span><span>${fmt(sub)}</span></div>` : '';
     }).join('');
     partidaBox.innerHTML = rows ? `<h5>Importe por partida</h5>${rows}` : '';
@@ -3903,9 +4077,9 @@ function recalcTotals() {
 
 function calcularPresupuesto(showToast = true) {
   closeInsumosPanel();
-  renderSidebar();
-  renderPanel();
-  recalcTotals();
+  recalcTotals();        // primero: actualiza currentFactor
+  renderSidebar();       // usa currentFactor para subtotales
+  renderPanel();         // usa currentFactor para P.U. e importes
   renderInsumosList();
   renderPrintArea();
   save();
@@ -3918,7 +4092,131 @@ function render() {
 
 function printBudget() {
   calcularPresupuesto(false);
-  setTimeout(() => window.print(), 50);
+  const hasRows = PARTIDAS.some(([l]) => STATE.rows[l].length > 0);
+  if (!hasRows) { toast('No hay conceptos en el presupuesto'); return; }
+
+  const meta = STATE.meta;
+  const esc  = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtN = v => Number(v||0).toLocaleString('es-MX', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const stamp = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+  const tdS   = `style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;vertical-align:top"`;
+  const tdR   = `style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top"`;
+
+  let totMat=0, totMo=0, directo=0, count=0;
+  PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(r => {
+    totMat  += (r.mat||0) * r.qty;
+    totMo   += (r.mo ||0) * r.qty;
+    directo += (r.p  ||0) * r.qty;
+    count++;
+  }));
+  const impAmt  = directo * STATE.imprevistos / 100;
+  const ciAmt   = STATE.ci.montoTotal      || 0;
+  const cfAmt   = STATE.ci.cfAmt           || 0;
+  const utilAmt = STATE.ci.utilAmtCascade  || 0;
+  const total   = directo * currentFactor  + impAmt;
+
+  const conceptSections = PARTIDAS.map(([letter, partidaName]) => {
+    const rows = STATE.rows[letter];
+    if (!rows.length) return '';
+    let pTotal = 0;
+    const startNo = getConceptStartNo(letter);
+    const rowsHtml = rows.map((r, idx) => {
+      const puF = round2((r.p||0) * currentFactor);
+      const lt  = puF * r.qty;
+      pTotal += lt;
+      return `<tr>
+        <td ${tdS} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;vertical-align:top;width:34px">${startNo + idx}</td>
+        <td ${tdS} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:justify;vertical-align:top;line-height:1.35">${esc(r.c)}</td>
+        <td ${tdS} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:center;vertical-align:top;width:50px">${esc(r.u)}</td>
+        <td ${tdR} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:60px">${r.qty}</td>
+        <td ${tdR} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:90px">${fmtN(puF)}</td>
+        <td ${tdR} style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:100px">${fmtN(lt)}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div style="border:1px solid #D3D1C7;margin-top:10px;page-break-inside:avoid">
+      <div style="background:#1A1A1A;color:white;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <div><span style="border:1px solid #C8A96E;color:#C8A96E;padding:2px 7px;font-family:ui-monospace,monospace;font-size:11px;margin-right:10px">${letter}</span><strong style="font-family:'Playfair Display',Georgia,serif;font-size:12px">${esc(partidaName)}</strong></div>
+        <div style="font-family:ui-monospace,monospace;color:#C8A96E;font-weight:600">${fmtN(pTotal)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#EEEADE">
+          <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700;width:34px">No.</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700">Descripción</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:center;font-weight:700;width:50px">Unidad</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:60px">Cant.</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:90px">P.U.</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:100px">Importe</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const resumenPartidas = PARTIDAS.map(([l, n]) => {
+    const sub = STATE.rows[l].reduce((s,r) => s + (r.p||0) * currentFactor * r.qty, 0);
+    return sub > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px dotted #E5E3DA;padding:4px 0;font-size:11px"><span>${l} · ${esc(n)}</span><span style="font-family:ui-monospace,monospace">${fmtN(sub)}</span></div>` : '';
+  }).join('');
+
+  const docHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Presupuesto de Obra</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  @page { size: letter portrait; margin: 14mm 12mm 22mm; @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#161514; background:#F8F5EE; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { max-width:1040px; margin:0 auto; background:white; min-height:100vh; padding:20px 24px 40px; }
+  .doc-footer { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #D3D1C7; padding:9px 12mm; font-size:9.5px; color:#5F5E5A; }
+  @media print { body { background:white; } .page { max-width:none; padding:0 0 40px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
+    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    <div style="flex:1">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Presupuesto de Obra</div>
+      ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
+      ${meta.cliente   ? `<div style="font-size:10.5px">Cliente: ${esc(meta.cliente)}</div>` : ''}
+      ${meta.obra      ? `<div style="font-size:10.5px">Obra: ${esc(meta.obra)}</div>` : ''}
+      ${meta.ubicacion ? `<div style="font-size:10.5px">Ubicación: ${esc(meta.ubicacion)}</div>` : ''}
+    </div>
+    <div style="text-align:right;font-size:10px;color:#5F5E5A">${esc(meta.fecha||stamp)}</div>
+  </div>
+  ${conceptSections}
+  <div style="margin-top:20px;border:1px solid #D3D1C7">
+    <div style="background:#1A1A1A;color:#C8A96E;padding:9px 14px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700">Resumen general</div>
+    <div style="padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Materiales</span><span style="font-family:ui-monospace,monospace">${fmtN(totMat)}</span></div>
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Mano de obra + Equipo</span><span style="font-family:ui-monospace,monospace">${fmtN(totMo)}</span></div>
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span><strong>Costo directo</strong></span><span style="font-family:ui-monospace,monospace"><strong>${fmtN(directo)}</strong></span></div>
+      ${ciAmt > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Costos Indirectos (${STATE.ci.porcTotal.toFixed(2)}%)</span><span style="font-family:ui-monospace,monospace">${fmtN(ciAmt)}</span></div>` : ''}
+      ${cfAmt > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>CF Financiamiento (${(STATE.ci.cfPorc||0).toFixed(2)}%)</span><span style="font-family:ui-monospace,monospace">${fmtN(cfAmt)}</span></div>` : ''}
+      ${impAmt > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Imprevistos (${STATE.imprevistos}%)</span><span style="font-family:ui-monospace,monospace">${fmtN(impAmt)}</span></div>` : ''}
+      ${utilAmt > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Utilidad (${STATE.ci.utilNetPorc.toFixed(2)}%)</span><span style="font-family:ui-monospace,monospace">${fmtN(utilAmt)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;border-top:2px solid #C8A96E;padding:8px 0;font-size:12px;font-weight:700;margin-top:4px"><span>Total general${STATE.ci.apuFormat === 'iva' ? '<span style="font-size:9px;color:#888780;font-weight:400;margin-left:6px">(IVA de materiales incluido)</span>' : ''}</span><span style="font-family:ui-monospace,monospace">${fmtN(total)}</span></div>
+      ${STATE.ci.apuFormat !== 'iva' ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:11px;color:#1A6B3C"><span>Total con IVA <span style="font-size:9px;color:#888780">(+ 16%)</span></span><span style="font-family:ui-monospace,monospace;font-weight:700">${fmtN(total * 1.16)}</span></div>` : ''}
+      <div style="border-top:1px solid #C8A96E;margin-top:8px;padding-top:10px">
+        <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-bottom:6px">Por partida</div>
+        ${resumenPartidas}
+      </div>
+    </div>
+  </div>
+</div>
+<div class="doc-footer">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>${meta.responsable ? `Responsable: <strong>${esc(meta.responsable)}</strong>` : 'Responsable: ___________________________________'}<span style="margin-left:36px">Firma: __________________________________</span></div>
+    <div style="font-size:9px;color:#C8A96E;font-family:ui-monospace,monospace;letter-spacing:0.06em">${getLicenseClientCode() ? `Lic. ${getLicenseClientCode()} · Emma ${new Date().getFullYear()}` : ''}</div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  openPrintDocument(docHtml);
+  toast(`Presupuesto · ${count} conceptos`);
 }
 
 function openPrintDocument(html) {
@@ -3946,14 +4244,16 @@ function renderPrintArea() {
     directo += (r.p||0) * r.qty;
     count++;
   }));
-  const impAmt = directo * STATE.imprevistos / 100;
-  const total = directo + impAmt;
+  const impAmt  = directo * STATE.imprevistos / 100;
+  const ciAmt   = STATE.ci.montoTotal      || 0;
+  const cfAmt   = STATE.ci.cfAmt           || 0;   // CF cascada (guardado por recalcTotals)
+  const utilAmt = STATE.ci.utilAmtCascade  || 0;   // Utilidad cascada (CD+CI+CF) × CU%
+  const total   = directo * currentFactor + impAmt; // coincide con recalcTotals
   let html = `<div style="font-size:10.5px;line-height:1.34">
   <div style="display:flex;align-items:center;gap:16px;padding:0 0 14px;border-bottom:1px solid #D3D1C7;margin-bottom:16px">
     ${STATE.meta.logo ? `<img src="${STATE.meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:8px">` : ''}
     <div style="flex:1">
       <div style="font-family:'Playfair Display','Iowan Old Style',serif;font-size:19px;font-weight:700">Presupuesto de obra</div>
-      <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#A88748;font-weight:700">Proyecto Emma · Base ${escHtml(BASE_INFO.version)}</div>
       ${STATE.meta.empresa ? `<div style="font-size:10.5px;margin-top:7px">Empresa: ${escHtml(STATE.meta.empresa)}</div>` : ''}
       ${STATE.meta.cliente ? `<div style="font-size:10.5px">Cliente: ${escHtml(STATE.meta.cliente)}</div>` : ''}
       ${STATE.meta.obra ? `<div style="font-size:10.5px">Obra: ${escHtml(STATE.meta.obra)}</div>` : ''}
@@ -3972,14 +4272,15 @@ function renderPrintArea() {
     let pTotal = 0;
     const startNo = getConceptStartNo(l);
     const rowsHtml = rows.map((r, idx) => {
-      const lt = (r.p||0) * r.qty;
+      const puF = round2((r.p||0) * currentFactor);   // P.U. con indirectos
+      const lt  = puF * r.qty;
       pTotal += lt;
       return `<tr>
         <td class="col-cod" style="vertical-align:top;font-size:10.5px">${startNo + idx}</td>
         <td class="col-desc" style="text-align:justify;vertical-align:top;font-size:10.5px;line-height:1.35">${escHtml(r.c)}</td>
         <td class="col-unit" style="vertical-align:top;font-size:10.5px">${escHtml(r.u)}</td>
         <td style="text-align:right;font-family:ui-monospace,monospace;vertical-align:top;font-size:10.5px">${r.qty}</td>
-        <td style="text-align:right;font-family:ui-monospace,monospace;vertical-align:top;font-size:10.5px">${fmt(r.p)}</td>
+        <td style="text-align:right;font-family:ui-monospace,monospace;vertical-align:top;font-size:10.5px">${fmt(puF)}</td>
         <td class="col-imp" style="vertical-align:top;font-size:10.5px">${fmt(lt)}</td>
       </tr>`;
     }).join('');
@@ -4004,15 +4305,18 @@ function renderPrintArea() {
         <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Materiales</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(totMat)}</td></tr>
         <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Mano de obra + Equipo</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(totMo)}</td></tr>
         <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA"><strong>Costo directo</strong></td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace"><strong>${fmt(directo)}</strong></td></tr>
-        <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Imprevistos (${STATE.imprevistos}%)</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(impAmt)}</td></tr>
-        <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">IVA</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;color:#5F5E5A">Incluido en materiales</td></tr>
-        <tr><td style="padding:9px 10px"><strong>Total general</strong></td><td style="padding:9px 10px;text-align:right;font-family:ui-monospace,monospace;font-size:14px"><strong>${fmt(total)}</strong></td></tr>
+        ${ciAmt > 0 ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Costos Indirectos (${STATE.ci.porcTotal.toFixed(2)}%)</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(ciAmt)}</td></tr>` : ''}
+        ${cfAmt > 0 ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">CF Financiamiento (${(STATE.ci.cfPorc||0).toFixed(2)}%)</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(cfAmt)}</td></tr>` : ''}
+        ${impAmt > 0 ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Imprevistos (${STATE.imprevistos}%)</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(impAmt)}</td></tr>` : ''}
+        ${utilAmt > 0 ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">Utilidad (${STATE.ci.utilNetPorc.toFixed(2)}%)</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmt(utilAmt)}</td></tr>` : ''}
+        <tr style="border-top:2px solid #C8A96E"><td style="padding:9px 10px;border-bottom:1px solid #E5E3DA"><strong>Total general</strong>${STATE.ci.apuFormat === 'iva' ? '<span style="font-size:9px;color:#888780;font-weight:400;margin-left:6px">(IVA de materiales incluido)</span>' : ''}</td><td style="padding:9px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace;font-size:13px"><strong>${fmt(total)}</strong></td></tr>
+        ${STATE.ci.apuFormat !== 'iva' ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;color:#1A6B3C">Total con IVA <span style="font-size:9px;color:#888780">(+ 16%)</span></td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace;font-size:13px;color:#1A6B3C"><strong>${fmt(total * 1.16)}</strong></td></tr>` : ''}
       </tbody>
     </table>
     <div style="border-top:1px solid #D3D1C7;padding:10px 12px">
       <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#888780;font-weight:700;margin-bottom:6px">Importe por partida</div>
       ${PARTIDAS.map(([l,n]) => {
-        const sub = STATE.rows[l].reduce((s,r) => s + (r.p || 0) * r.qty, 0);
+        const sub = STATE.rows[l].reduce((s,r) => s + (r.p || 0) * currentFactor * r.qty, 0);
         return sub > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px dotted #E5E3DA;padding:4px 0;font-size:12px"><span>${l} · ${escHtml(n)}</span><span style="font-family:ui-monospace,monospace">${fmt(sub)}</span></div>` : '';
       }).join('')}
     </div>
@@ -4060,7 +4364,7 @@ function exportExcel() {
     ['TOTAL GENERAL',                       total],
     [], ['SUBTOTAL POR PARTIDA'],
     ...PARTIDAS.filter(([l]) => STATE.rows[l].length > 0).map(([l, n]) => {
-      const sub = STATE.rows[l].reduce((s,r) => s + r.p*r.qty, 0);
+      const sub = STATE.rows[l].reduce((s,r) => s + r.p * currentFactor * r.qty, 0);
       return [`${l} · ${n}`, sub];
     }),
   ];
@@ -4068,12 +4372,12 @@ function exportExcel() {
   ws1['!cols'] = [{ wch: 38 }, { wch: 18 }];
   XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
 
-  // Detalle
-  const detalle = [['Partida','No.','Descripción','Unidad','Cantidad','P.U.','P.U. Mat.','P.U. MO+Eq','Importe']];
-  all.forEach((r, idx) => detalle.push([
-    `${r._letter} · ${r._name}`, idx + 1, r.c, r.u,
-    r.qty, r.p, r.mat, r.mo, r.p * r.qty,
-  ]));
+  // Detalle — P.U. y Importe con indirectos aplicados
+  const detalle = [['Partida','No.','Descripción','Unidad','Cantidad','P.U. (con indirectos)','P.U. Mat. CD','P.U. MO+Eq CD','Importe']];
+  all.forEach((r, idx) => {
+    const puF = round2((r.p || 0) * currentFactor);
+    detalle.push([`${r._letter} · ${r._name}`, idx + 1, r.c, r.u, r.qty, puF, r.mat, r.mo, puF * r.qty]);
+  });
   const ws2 = XLSX.utils.aoa_to_sheet(detalle);
   ws2['!cols'] = [{wch:32},{wch:16},{wch:60},{wch:8},{wch:10},{wch:12},{wch:12},{wch:12},{wch:14}];
   XLSX.utils.book_append_sheet(wb, ws2, 'Detalle');
@@ -4132,23 +4436,24 @@ function exportExcelNative() {
   rows.push(`<tr><td></td><td></td><td></td><td></td><td></td>${c('TOTAL GENERAL', 'label')}${n(total, 'num totalSummary', 'colspan="3"')}</tr>`);
   rows.push(`<tr><td colspan="9"></td></tr>`);
   rows.push(`<tr>${c('Partida','hdr')}${c('No.','hdr center')}${c('Descripcion','hdr')}${c('Unidad','hdr center')}${c('Cantidad','hdr center')}${c('P.U.','hdr center')}${c('P.U. Mat.','hdr center')}${c('P.U. MO+Eq','hdr center')}${c('Importe','hdr right')}</tr>`);
-  rows.push(`<tr>${c('Total general','groupLeft')}${c('','group')}${c(meta.obra || 'Presupuesto','group', 'colspan="6"')}${n(directo, 'groupAmount')}</tr>`);
+  rows.push(`<tr>${c('Total general','groupLeft')}${c('','group')}${c(meta.obra || 'Presupuesto','group', 'colspan="6"')}${n(directo * currentFactor, 'groupAmount')}</tr>`);
 
   let conceptNo = 1;
   PARTIDAS.forEach(([letter, partidaName]) => {
     const partRows = STATE.rows[letter];
     if (!partRows.length) return;
-    const subtotal = partRows.reduce((s,r) => s + (r.p || 0) * r.qty, 0);
+    const subtotal = partRows.reduce((s,r) => s + (r.p || 0) * currentFactor * r.qty, 0);
     rows.push(`<tr>${c('', 'part')}${c('', 'part')}${c(`${letter} - ${partidaName}`, 'partName', 'colspan="6"')}${n(subtotal, 'partAmount')}</tr>`);
     partRows.forEach(r => {
-      const importe = (r.p || 0) * r.qty;
+      const puF    = round2((r.p || 0) * currentFactor);
+      const importe = puF * r.qty;
       rows.push(`<tr>
         ${c(`${letter} - ${partidaName}`, 'body')}
         ${c(conceptNo++, 'body center')}
         ${c(r.c, 'body desc')}
         ${c(r.u, 'body center')}
         ${c(q(r.qty), 'body qty')}
-        ${n(r.p, 'body num')}
+        ${n(puF, 'body num')}
         ${n(r.mat, 'body num')}
         ${n(r.mo, 'body num')}
         ${n(importe, 'body num strong')}
@@ -4223,6 +4528,128 @@ function exportInsumosList() {
   const stamp = new Date().toISOString().slice(0,10);
   downloadBlob(html, `${safeFileStem()}_insumos_${stamp}.xls`, 'application/vnd.ms-excel;charset=utf-8');
   toast('Listado de insumos exportado');
+}
+
+function printInsumosList() {
+  calcularPresupuesto(false);
+  const items = buildInsumosList();
+  if (items.length === 0) { toast('No hay insumos para imprimir'); return; }
+
+  const meta  = STATE.meta;
+  const esc   = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtN  = v => Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const fmtQ  = v => Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits:4, maximumFractionDigits:6 });
+  const stamp = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+
+  const thS  = `style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:left;background:#EEEADE;border-bottom:2px solid #D3D1C7"`;
+  const thR  = `style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:right;background:#EEEADE;border-bottom:2px solid #D3D1C7"`;
+  const tdS  = `style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;vertical-align:top"`;
+  const tdR  = `style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top"`;
+
+  const tipoColor = { M:'#1A6B3C', B:'#7B3F00', O:'#0B4F8C', E:'#6B2C6B' };
+  const tipoBg    = { M:'#EAF4EE', B:'#FDF3E3', O:'#E8F0F9', E:'#F5EAF5' };
+
+  let totalImporte = 0;
+  const groupsHtml = ['M','B','O','E'].map(t => {
+    const group = items.filter(x => x.t === t).sort((a,b) => a.c.localeCompare(b.c,'es'));
+    if (!group.length) return '';
+    const groupTotal = group.reduce((s,x) => s + (x.importe||0), 0);
+    totalImporte += groupTotal;
+    const color = tipoColor[t] || '#333';
+    const bg    = tipoBg[t]    || '#F8F5EE';
+    const rows  = group.map(x => {
+      const costoCell  = x.globalPercent
+        ? `<td ${tdR}>${(x.percentRate*100).toLocaleString('es-MX',{maximumFractionDigits:2})}% MO</td>`
+        : `<td ${tdR}>${fmtN(x.cs)}</td>`;
+      const cantCell = x.globalPercent
+        ? `<td ${tdR} style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;color:#888780">Global</td>`
+        : `<td ${tdR}>${fmtQ(x.calcQty)}</td>`;
+      return `<tr>
+        <td ${tdS}>${esc(x.cod)}</td>
+        <td ${tdS} style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;vertical-align:top;line-height:1.35">${esc(x.c)}</td>
+        <td ${tdS} style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;vertical-align:top;text-align:center">${esc(x.u)}</td>
+        ${costoCell}
+        ${cantCell}
+        <td ${tdR} style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;font-weight:600">${fmtN(x.importe)}</td>
+        <td ${tdS} style="padding:4px 8px;border-bottom:1px solid #F0EDE6;font-size:10px;vertical-align:top;color:#888780;font-size:9px">${esc(x.partidas)}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div style="margin-top:14px;border:1px solid #D3D1C7;page-break-inside:avoid">
+      <div style="background:${bg};border-left:4px solid ${color};padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;font-size:11px;color:${color}">${esc(TIPO_NAME[t] || t)}</span>
+        <span style="font-family:ui-monospace,monospace;font-size:11px;color:${color};font-weight:700">${fmtN(groupTotal)}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th ${thS} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:left;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:90px">Código</th>
+          <th ${thS} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:left;background:#EEEADE;border-bottom:2px solid #D3D1C7">Descripción</th>
+          <th ${thS} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:center;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:50px">Un.</th>
+          <th ${thR} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:right;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:90px">P.U.</th>
+          <th ${thR} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:right;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:90px">Cantidad</th>
+          <th ${thR} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:right;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:100px">Importe</th>
+          <th ${thS} style="padding:5px 8px;font-size:9.5px;font-weight:700;text-align:left;background:#EEEADE;border-bottom:2px solid #D3D1C7;width:60px">Partidas</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const resumenHtml = ['M','B','O','E'].map(t => {
+    const sub = items.filter(x => x.t === t).reduce((s,x) => s + (x.importe||0), 0);
+    if (!sub) return '';
+    return `<div style="display:flex;justify-content:space-between;border-bottom:1px dotted #E5E3DA;padding:4px 0;font-size:11px;color:${tipoColor[t]||'#333'}"><span>${esc(TIPO_NAME[t]||t)}</span><span style="font-family:ui-monospace,monospace">${fmtN(sub)}</span></div>`;
+  }).join('');
+
+  const docHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Listado de Insumos</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  @page { size: letter portrait; margin: 14mm 12mm 22mm; @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#161514; background:#F8F5EE; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { max-width:1040px; margin:0 auto; background:white; min-height:100vh; padding:20px 24px 40px; }
+  .doc-footer { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #D3D1C7; padding:9px 12mm; font-size:9.5px; color:#5F5E5A; }
+  @media print { body { background:white; } .page { max-width:none; padding:0 0 40px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:4px">
+    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    <div style="flex:1">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Listado de Insumos</div>
+      ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
+      ${meta.cliente   ? `<div style="font-size:10.5px">Cliente: ${esc(meta.cliente)}</div>` : ''}
+      ${meta.obra      ? `<div style="font-size:10.5px">Obra: ${esc(meta.obra)}</div>` : ''}
+      ${meta.ubicacion ? `<div style="font-size:10.5px">Ubicación: ${esc(meta.ubicacion)}</div>` : ''}
+    </div>
+    <div style="text-align:right;font-size:10px;color:#5F5E5A">${esc(meta.fecha||stamp)}</div>
+  </div>
+  <div style="font-size:9px;color:#888780;margin-bottom:14px">${items.length} insumos consolidados</div>
+  ${groupsHtml}
+  <div style="margin-top:20px;border:1px solid #D3D1C7;page-break-inside:avoid">
+    <div style="background:#1A1A1A;color:#C8A96E;padding:9px 14px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700">Resumen</div>
+    <div style="padding:12px 14px">
+      ${resumenHtml}
+      <div style="display:flex;justify-content:space-between;border-top:2px solid #C8A96E;padding:8px 0;font-size:12px;font-weight:700;margin-top:4px"><span>Total de insumos</span><span style="font-family:ui-monospace,monospace">${fmtN(totalImporte)}</span></div>
+    </div>
+  </div>
+</div>
+<div class="doc-footer">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>${meta.responsable ? `Responsable: <strong>${esc(meta.responsable)}</strong>` : 'Responsable: ___________________________________'}<span style="margin-left:36px">Firma: __________________________________</span></div>
+    <div style="font-size:9px;color:#C8A96E;font-family:ui-monospace,monospace;letter-spacing:0.06em">${getLicenseClientCode() ? `Lic. ${getLicenseClientCode()} · Emma ${new Date().getFullYear()}` : ''}</div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  openPrintDocument(docHtml);
+  toast(`Listado de insumos · ${items.length} insumos`);
 }
 
 function exportConceptBreakdowns() {
@@ -4386,10 +4813,15 @@ ${rows.join('')}
 function openPUFormatModal() {
   const bg = document.getElementById('puFmtBg');
   bg.style.display = 'flex';
-  // populate CI/CU preview
+  // Pre-fill CI%, CF% y CU% desde el módulo CI (editables por el usuario)
   const ci = STATE.ci;
-  document.getElementById('puFmt-ci-preview').textContent = (ci.porcTotal || 0).toFixed(2) + '%';
-  document.getElementById('puFmt-cu-preview').textContent = (ci.utilNetPorc || 0).toFixed(2) + '%';
+  document.getElementById('puFmt-ci').value = (ci.porcTotal   || 0).toFixed(2);
+  document.getElementById('puFmt-cf').value = (ci.cfPorc      || 0).toFixed(2);
+  document.getElementById('puFmt-cu').value = (ci.utilNetPorc || 0).toFixed(2);
+  // Restaurar formato guardado
+  const savedFmt = ci.apuFormat || 'cascada';
+  const radio = document.querySelector(`input[name="puFmt"][value="${savedFmt}"]`);
+  if (radio) radio.checked = true;
   updatePUCFRow();
 }
 function closePUFormatModal() {
@@ -4400,10 +4832,150 @@ function updatePUCFRow() {
   document.getElementById('puFmt-cf-row').style.display = fmt === 'cascada' ? 'block' : 'none';
 }
 function confirmPUFormat() {
-  const fmt = document.querySelector('input[name="puFmt"]:checked')?.value || 'cascada';
+  const fmt    = document.querySelector('input[name="puFmt"]:checked')?.value || 'cascada';
+  const ciPorc = parseFloat(document.getElementById('puFmt-ci').value) || 0;
+  const cuPorc = parseFloat(document.getElementById('puFmt-cu').value) || 0;
   const cfPorc = parseFloat(document.getElementById('puFmt-cf').value) || 0;
+  // Persistir CF% en STATE para que el presupuesto use el mismo valor
+  STATE.ci.cfPorc = cfPorc;
+  recalcTotals();
+  save();
   closePUFormatModal();
-  _doExportAnalisisPU(fmt, cfPorc);
+  _doExportAnalisisPU(fmt, ciPorc, cuPorc, cfPorc);
+}
+
+// Acción del modal: aplica CF% al presupuesto y recalcula (NO genera PDF)
+function confirmCalcPresupuesto() {
+  const fmt    = document.querySelector('input[name="puFmt"]:checked')?.value || 'cascada';
+  const cfPorc = parseFloat(document.getElementById('puFmt-cf').value) || 0;
+  STATE.ci.cfPorc    = cfPorc;
+  STATE.ci.apuFormat = fmt;
+  closePUFormatModal();
+  calcularPresupuesto(true);   // recalcTotals interno actualiza currentFactor con el nuevo CF%
+}
+
+// ── Presupuesto a Costo Directo (sin indirectos) ─────────────────────────
+function exportPresupuestoCD() {
+  const hasRows = PARTIDAS.some(([l]) => STATE.rows[l].length > 0);
+  if (!hasRows) { toast('No hay conceptos en el presupuesto'); return; }
+  const meta  = STATE.meta;
+  const esc   = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtN  = v => Number(v||0).toLocaleString('es-MX', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  let totMat=0, totMo=0, directo=0, count=0;
+  PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(r => {
+    totMat  += (r.mat||0) * r.qty;
+    totMo   += (r.mo ||0) * r.qty;
+    directo += (r.p  ||0) * r.qty;
+    count++;
+  }));
+
+  const conceptSections = PARTIDAS.map(([letter, partidaName]) => {
+    const rows = STATE.rows[letter];
+    if (!rows.length) return '';
+    let pTotal = 0;
+    const startNo = getConceptStartNo(letter);
+    const rowsHtml = rows.map((r, idx) => {
+      const pu = r.p || 0;
+      const lt = pu * r.qty;
+      pTotal += lt;
+      return `<tr>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;vertical-align:top">${startNo + idx}</td>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:justify;vertical-align:top;line-height:1.35">${esc(r.c)}</td>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:center;vertical-align:top">${esc(r.u)}</td>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top">${r.qty}</td>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top">${fmtN(pu)}</td>
+        <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top">${fmtN(lt)}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div style="border:1px solid #C8C0B0;margin-top:10px;page-break-inside:avoid">
+      <div style="background:#1A1A1A;color:white;padding:9px 12px;display:flex;justify-content:space-between;align-items:center">
+        <div><span style="border:1px solid #C8A96E;color:#C8A96E;padding:2px 7px;font-family:ui-monospace,monospace;font-size:10px;margin-right:10px">${letter}</span><strong style="font-size:12px">${esc(partidaName)}</strong></div>
+        <div style="font-family:ui-monospace,monospace;color:#C8A96E;font-weight:600">${fmtN(pTotal)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#EEEADE">
+          <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700;width:34px">No.</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700">Descripción</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:center;font-weight:700;width:50px">Unidad</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:60px">Cant.</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:90px">P.U. (CD)</th>
+          <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:100px">Importe</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const resumenPartidas = PARTIDAS.map(([l, n]) => {
+    const sub = STATE.rows[l].reduce((s,r) => s + (r.p||0)*r.qty, 0);
+    return sub > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px dotted #E5E3DA;padding:4px 0;font-size:11px"><span>${l} · ${esc(n)}</span><span style="font-family:ui-monospace,monospace">${fmtN(sub)}</span></div>` : '';
+  }).join('');
+
+  const stamp = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+  const docHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Presupuesto a Costo Directo</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  @page { size: letter portrait; margin: 12mm 10mm 22mm; @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#161514; background:#F8F5EE; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { max-width:1040px; margin:0 auto; background:white; min-height:100vh; padding:20px 24px 40px; }
+  .doc-footer { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #D3D1C7; padding:9px 10mm; font-size:9.5px; color:#5F5E5A; }
+  @media print { body { background:white; } .page { max-width:none; padding:0 0 40px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
+    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    <div style="flex:1">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Presupuesto de Obra — Costo Directo</div>
+      ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
+      ${meta.cliente   ? `<div style="font-size:10.5px">Cliente: ${esc(meta.cliente)}</div>` : ''}
+      ${meta.obra      ? `<div style="font-size:10.5px">Obra: ${esc(meta.obra)}</div>` : ''}
+      ${meta.ubicacion ? `<div style="font-size:10.5px">Ubicación: ${esc(meta.ubicacion)}</div>` : ''}
+    </div>
+    <div style="text-align:right;font-size:10px;color:#5F5E5A">${esc(meta.fecha||stamp)}</div>
+  </div>
+  ${conceptSections}
+  <div style="margin-top:20px;border:1px solid #D3D1C7">
+    <div style="background:#1A1A1A;color:#C8A96E;padding:9px 14px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700">Resumen general — Costo Directo</div>
+    <div style="padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Materiales</span><span style="font-family:ui-monospace,monospace">${fmtN(totMat)}</span></div>
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:10.5px"><span>Mano de obra + Equipo</span><span style="font-family:ui-monospace,monospace">${fmtN(totMo)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px;font-weight:700"><span>COSTO DIRECTO TOTAL</span><span style="font-family:ui-monospace,monospace">${fmtN(directo)}</span></div>
+      <div style="border-top:1px solid #C8A96E;margin-top:4px;padding-top:10px">
+        <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-bottom:6px">Por partida</div>
+        ${resumenPartidas}
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:10px;font-size:9px;color:#888780;text-align:center">Nota: Este presupuesto refleja costos directos sin indirectos, financiamiento ni utilidad.</div>
+</div>
+<div class="doc-footer">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>${meta.responsable ? `Responsable: <strong>${esc(meta.responsable)}</strong>` : 'Responsable: ___________________________________'}<span style="margin-left:36px">Firma: __________________________________</span></div>
+    <div style="font-size:9px;color:#C8A96E;font-family:ui-monospace,monospace;letter-spacing:0.06em">${getLicenseClientCode() ? `Lic. ${getLicenseClientCode()} · Emma ${new Date().getFullYear()}` : ''}</div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  openPrintDocument(docHtml);
+  toast(`Presupuesto a costo directo · ${count} conceptos`);
+}
+
+// Genera PDF APU directamente desde los valores actuales de STATE (sin modal)
+function exportAPUDirect() {
+  calcularPresupuesto(false);
+  const hasRows = PARTIDAS.some(([l]) => STATE.rows[l].length > 0);
+  if (!hasRows) { toast('No hay conceptos para exportar'); return; }
+  _doExportAnalisisPU('cascada', STATE.ci.porcTotal || 0, STATE.ci.utilNetPorc || 0, STATE.ci.cfPorc || 0);
 }
 
 function exportConceptBreakdownsPdf() {
@@ -4518,25 +5090,27 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
   }
 
   function buildPieDeIndirectos(cd, matAmt) {
-    const ci   = cd * ciPorc / 100;
+    cd = Number(cd) || 0;          // garantizar número (r.p podría ser string)
+    matAmt = Number(matAmt) || 0;
+    const ci   = cd * (Number(ciPorc) || 0) / 100;
     const sub1 = cd + ci;
     // 7 columns: Concepto | Un | PUnit | Op | Cant | Importe | %
     let html = `<tr class="pie-header"><td colspan="7" class="pie-header-label">PIE DE INDIRECTOS — ${esc(fmtLabel)}</td></tr>`;
     html += `<tr class="pie-cd">
       <td colspan="4">(CD) COSTO DIRECTO</td>
-      <td colspan="2" class="num pie-amt">$${money(cd)}</td>
+      <td colspan="2" class="num pie-amt">${money(cd)}</td>
       <td class="num pc pie-pct">100.00%</td>
     </tr>`;
     html += `<tr class="pie-row">
       <td colspan="3">(CI) INDIRECTOS</td>
       <td class="center pie-rate">${pct(ciPorc)}</td>
       <td></td>
-      <td class="num pie-amt">$${money(ci)}</td>
-      <td class="num pc pie-pct">${pct(cd>0?ci/cd*100:0)}</td>
+      <td class="num pie-amt">${money(ci)}</td>
+      <td></td>
     </tr>`;
     html += `<tr class="pie-sub">
       <td colspan="4">SUBTOTAL 1</td>
-      <td colspan="2" class="num pie-amt">$${money(sub1)}</td>
+      <td colspan="2" class="num pie-amt">${money(sub1)}</td>
       <td></td>
     </tr>`;
 
@@ -4546,16 +5120,16 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
       const cu   = sub2 * cuPorc / 100;
       const pu   = sub2 + cu;
       if (cfPorc > 0) {
-        html += `<tr class="pie-row">
+        html += `<tr class="pie-cf">
           <td colspan="3">(CF) FINANCIAMIENTO</td>
           <td class="center pie-rate">${pct(cfPorc)}</td>
           <td></td>
-          <td class="num pie-amt">$${money(cf)}</td>
-          <td class="num pc pie-pct">${pct(cd>0?cf/cd*100:0)}</td>
+          <td class="num pie-amt">${money(cf)}</td>
+          <td></td>
         </tr>`;
         html += `<tr class="pie-sub">
           <td colspan="4">SUBTOTAL 2</td>
-          <td colspan="2" class="num pie-amt">$${money(sub2)}</td>
+          <td colspan="2" class="num pie-amt">${money(sub2)}</td>
           <td></td>
         </tr>`;
       }
@@ -4563,13 +5137,13 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         <td colspan="3">(CU) UTILIDAD</td>
         <td class="center pie-rate">${pct(cuPorc)}</td>
         <td></td>
-        <td class="num pie-amt">$${money(cu)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?cu/cd*100:0)}</td>
+        <td class="num pie-amt">${money(cu)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-pu">
         <td colspan="4">PRECIO UNITARIO (CD+CI${cfPorc>0?'+CF':''}+CU)</td>
-        <td colspan="2" class="num pie-pu-val">$${money(pu)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?pu/cd*100:0)}</td>
+        <td colspan="2" class="num pie-pu-val">${money(pu)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-letras"><td colspan="7" class="letras-cell">SON: ${esc(numLetrasPesos(pu))}</td></tr>`;
     } else if (format === 'unico') {
@@ -4577,20 +5151,20 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
       html = `<tr class="pie-header"><td colspan="7" class="pie-header-label">PIE DE INDIRECTOS — ${esc(fmtLabel)}</td></tr>`;
       html += `<tr class="pie-cd">
         <td colspan="4">(CD) COSTO DIRECTO</td>
-        <td colspan="2" class="num pie-amt">$${money(cd)}</td>
+        <td colspan="2" class="num pie-amt">${money(cd)}</td>
         <td class="num pc pie-pct">100.00%</td>
       </tr>`;
       html += `<tr class="pie-row">
         <td colspan="3">(CI) INDIRECTO ÚNICO</td>
         <td class="center pie-rate">${pct(ciPorc)}</td>
         <td></td>
-        <td class="num pie-amt">$${money(ci)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?ci/cd*100:0)}</td>
+        <td class="num pie-amt">${money(ci)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-pu">
         <td colspan="4">PRECIO UNITARIO (CD+CI)</td>
-        <td colspan="2" class="num pie-pu-val">$${money(pu)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?pu/cd*100:0)}</td>
+        <td colspan="2" class="num pie-pu-val">${money(pu)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-letras"><td colspan="7" class="letras-cell">SON: ${esc(numLetrasPesos(pu))}</td></tr>`;
     } else { // iva
@@ -4601,20 +5175,20 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         <td colspan="3">(CU) UTILIDAD E INDIRECTOS</td>
         <td class="center pie-rate">${pct(cuPorc)}</td>
         <td></td>
-        <td class="num pie-amt">$${money(cu)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?cu/cd*100:0)}</td>
+        <td class="num pie-amt">${money(cu)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-row">
         <td colspan="3">IVA EN MATERIALES</td>
-        <td class="center pie-rate">16% × $${money(matAmt)}</td>
+        <td class="center pie-rate">16% × ${money(matAmt)}</td>
         <td></td>
-        <td class="num pie-amt">$${money(iva)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?iva/cd*100:0)}</td>
+        <td class="num pie-amt">${money(iva)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-pu">
         <td colspan="4">PRECIO UNITARIO (CD+CI+CU+IVA MAT)</td>
-        <td colspan="2" class="num pie-pu-val">$${money(pu)}</td>
-        <td class="num pc pie-pct">${pct(cd>0?pu/cd*100:0)}</td>
+        <td colspan="2" class="num pie-pu-val">${money(pu)}</td>
+        <td></td>
       </tr>`;
       html += `<tr class="pie-letras"><td colspan="7" class="letras-cell">SON: ${esc(numLetrasPesos(pu))}</td></tr>`;
     }
@@ -4640,10 +5214,23 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
     return partRows.map((r, idx) => {
       const conceptNo = allLet[letter] + idx;
       const insumos   = getComparableInsumos(r);
-      const cd        = r.p || 0;
-      const matAmt    = r.mat || 0;
+      const cd        = Number(r.p)   || 0;
+      const matAmt    = Number(r.mat) || 0;
       const qtyVal    = r.qty || 0;
-      const importe   = cd * qtyVal;
+      // Calcular PU con indirectos (misma lógica que buildPieDeIndirectos)
+      const _ci   = cd * (Number(ciPorc) || 0) / 100;
+      const _sub1 = cd + _ci;
+      let pu;
+      if (format === 'cascada') {
+        const _cf = _sub1 * cfPorc / 100;
+        const _s2 = _sub1 + _cf;
+        pu = _s2 + _s2 * cuPorc / 100;
+      } else if (format === 'unico') {
+        pu = _sub1;
+      } else { // iva
+        pu = _sub1 + _sub1 * cuPorc / 100 + matAmt * 0.16;
+      }
+      const importe   = pu * qtyVal;
 
       const cuadrillaMap = buildCuadrillaLetterMap(insumos);
       const matHtml = buildInsumoSection(insumos, ['M','B'], 'MATERIALES', cd, cuadrillaMap);
@@ -4794,20 +5381,25 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
   }
   .pie-cd td { background: #FDF8F0; padding: 4px 7px; font-size: 9px; font-weight: 700; border-bottom: 1px solid #DDD5C5; }
   .pie-row td { background: #FAF7F1; padding: 4px 7px; font-size: 9px; border-bottom: 1px dotted #DDD5C5; }
+  .pie-cf td { background: #FFF0EE; padding: 4px 7px; font-size: 9px; border-bottom: 1px dotted #E0BBBB; }
   .pie-sub td { background: #F2EDE0; padding: 4px 7px; font-size: 9px; font-weight: 700; border-bottom: 1px solid #C8C0B0; }
   .pie-pu td { background: #004080; color: white; padding: 6px 8px; font-size: 10px; font-weight: 800; border-bottom: none; }
   .pie-letras td.letras-cell { background: #EEE9E0; color: #5A5347; padding: 4px 8px; font-size: 8px; font-style: italic; letter-spacing: .03em; }
-  .pie-cd td.pie-amt, .pie-row td.pie-amt, .pie-sub td.pie-amt, .pie-pu td.pie-pu-val {
+  .pie-cd td.pie-amt, .pie-row td.pie-amt, .pie-cf td.pie-amt, .pie-sub td.pie-amt, .pie-pu td.pie-pu-val {
     text-align: right; font-family: Consolas, monospace; font-weight: 800; white-space: nowrap;
   }
   .pie-cd td.pie-pct, .pie-row td.pie-pct, .pie-pu td.pie-pct { text-align: right; font-size: 8px; }
+  .pie-cf td.pie-pct { text-align: right; font-size: 8px; font-weight: 800; color: #8B3A3A; }
   .pie-row td.pie-rate { text-align: center; color: #5A5347; font-size: 9px; font-weight: 700; }
+  .pie-cf td.pie-rate { text-align: center; color: #8B3A3A; font-size: 9px; font-weight: 700; }
   @media print {
+    @page { @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
     body { background: white; }
-    .page { max-width: none; }
+    .page { max-width: none; padding-bottom: 40px; }
     .concept-card { page-break-before: always; break-before: page; }
     .concept-card:first-child { page-break-before: auto; break-before: auto; }
     .summary-bar { page-break-after: always; break-after: page; }
+    .doc-footer { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #D3D1C7; padding: 9px 10mm; font-size: 9.5px; color: #5F5E5A; }
   }
 </style>
 </head>
@@ -4816,7 +5408,6 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
   <header class="cover">
     <div class="cover-top">
       <div>
-        <div class="eyebrow">Proyecto Emma — Análisis de Precios Unitarios</div>
         <h1>Análisis de Precios Unitarios</h1>
         <div style="color:#C8A96E;font-size:8.5px;margin-top:5px">${esc(fmtLabel)}</div>
       </div>
@@ -4841,6 +5432,12 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
     ${conceptSections}
   </section>
 </main>
+<div class="doc-footer">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>${meta.responsable ? `Responsable: <strong>${esc(meta.responsable)}</strong>` : 'Responsable: ___________________________________'}<span style="margin-left:36px">Firma: __________________________________</span></div>
+    <div style="font-size:9px;color:#C8A96E;font-family:ui-monospace,monospace;letter-spacing:0.06em">${getLicenseClientCode() ? `Lic. ${getLicenseClientCode()} · Emma ${new Date().getFullYear()}` : ''}</div>
+  </div>
+</div>
 </body>
 </html>`;
 
@@ -5390,8 +5987,7 @@ function printBasicos() {
   <header class="cover">
     <div class="cover-top">
       <div>
-        <div class="eyebrow">Proyecto Emma · Básicos y cuadrillas — ${escHtml(filterLabel)}</div>
-        <h1>Análisis de básicos y cuadrillas</h1>
+        <h1>Análisis de básicos y cuadrillas — ${escHtml(filterLabel)}</h1>
       </div>
       ${meta.logo ? `<img class="logo" src="${meta.logo}" alt="Logo">` : ''}
     </div>
