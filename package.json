@@ -1,0 +1,13 @@
+{
+  "name": "emma-presupuestos-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sitio comercial y demo de Emma Presupuestos Pro.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+

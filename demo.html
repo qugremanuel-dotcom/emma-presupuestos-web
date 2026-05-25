@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo comercial - Emma Presupuestos Pro</title>
+  <meta name="description" content="Demo comercial ligera de Emma Presupuestos Pro para mostrar el flujo de valor en pocos minutos.">
+  <style>
+    :root {
+      --ink:#17191f; --muted:#626978; --line:#d8dce6; --paper:#fbfaf6; --soft:#f0f3f7;
+      --gold:#c79a43; --gold-dark:#8b6424; --green:#186b55; --blue:#225d8f; --coral:#bd5636; --white:#fff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); letter-spacing:0; }
+    a { color:inherit; text-decoration:none; }
+    button, input { font:inherit; }
+    .shell { min-height:100vh; display:grid; grid-template-rows:auto 1fr; }
+    header {
+      display:flex; align-items:center; justify-content:space-between; gap:20px;
+      min-height:68px; padding:0 28px; background:#fff; border-bottom:1px solid var(--line);
+    }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; }
+    .mark { display:grid; place-items:center; width:34px; height:34px; border-radius:7px; background:var(--ink); color:var(--gold); }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 15px;
+      border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink); font-weight:800; cursor:pointer;
+    }
+    .btn.primary { background:var(--gold); border-color:var(--gold-dark); color:#151009; }
+    main { display:grid; grid-template-columns:280px 1fr 330px; gap:0; min-height:calc(100vh - 68px); }
+    aside, .summary { background:#f2f3f4; border-right:1px solid var(--line); padding:22px; }
+    .summary { border-right:0; border-left:1px solid var(--line); }
+    .demo-note { color:var(--muted); font-size:13px; line-height:1.5; margin:8px 0 20px; }
+    .field { margin-bottom:14px; }
+    .field label { display:block; margin-bottom:6px; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; }
+    .field input { width:100%; height:40px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+    .partidas { display:grid; gap:8px; margin-top:22px; }
+    .partida { padding:12px; border:1px solid var(--line); border-radius:7px; background:#fff; font-size:13px; font-weight:800; }
+    .partida.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .workspace { padding:24px; overflow:auto; }
+    .workspace-head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:18px; }
+    h1 { margin:0; font-size:28px; line-height:1.1; }
+    .sub { margin-top:7px; color:var(--muted); line-height:1.45; }
+    .concept-tools { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .table-wrap { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:12px; border-bottom:1px solid var(--line); text-align:left; font-size:13px; vertical-align:top; }
+    th { background:#f7f8f9; color:var(--muted); font-size:11px; text-transform:uppercase; }
+    tbody tr:last-child td { border-bottom:0; }
+    td.code { color:var(--blue); font-weight:800; white-space:nowrap; }
+    td.money, th.money { text-align:right; white-space:nowrap; font-weight:800; }
+    td input { width:76px; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; text-align:right; }
+    .summary h2 { margin:0 0 16px; font-size:20px; }
+    .metric { display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+    .metric span { color:var(--muted); font-size:13px; }
+    .metric strong { text-align:right; }
+    .total { margin-top:18px; padding:18px; border-radius:8px; background:var(--ink); color:#fff; }
+    .total span { display:block; color:#c9cbd0; font-size:12px; font-weight:800; text-transform:uppercase; }
+    .total strong { display:block; margin-top:8px; color:var(--gold); font-size:30px; }
+    .exports { display:grid; gap:10px; margin-top:18px; }
+    .script { margin-top:20px; padding:16px; border:1px solid #bad7cb; border-radius:8px; background:#ebf6f1; color:#164d3f; font-size:13px; line-height:1.5; }
+    @media (max-width:1050px) { main { grid-template-columns:1fr; } aside,.summary { border:0; border-bottom:1px solid var(--line); } .workspace-head { flex-direction:column; } .concept-tools { justify-content:flex-start; } }
+    @media (max-width:620px) { header,.workspace,aside,.summary { padding:18px; } table { min-width:760px; } .actions { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="index.html"><span class="mark">E</span><span>Emma Presupuestos Pro</span></a>
+      <div class="actions">
+        <a class="btn" href="ventas/guion-demo.md">Guion de venta</a>
+        <a class="btn primary" href="app/presupuesto_emma.html">Abrir app completa</a>
+      </div>
+    </header>
+    <main>
+      <aside>
+        <strong>Demo precargada</strong>
+        <p class="demo-note">Usa esta pantalla para explicar el valor antes de abrir la herramienta completa. Cambia cantidades y muestra como se actualiza el total.</p>
+        <div class="field"><label>Empresa</label><input value="Constructora Ejemplo"></div>
+        <div class="field"><label>Cliente</label><input value="Cliente Residencial"></div>
+        <div class="field"><label>Obra</label><input value="Remodelacion casa habitacion"></div>
+        <div class="field"><label>Ubicacion</label><input value="Cancun, Q. Roo"></div>
+        <div class="partidas">
+          <div class="partida active">A - Preliminares</div>
+          <div class="partida">C - Demoliciones</div>
+          <div class="partida">F - Estructura</div>
+          <div class="partida">K - Acabados</div>
+          <div class="partida">M - Electrica</div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="workspace-head">
+          <div>
+            <h1>Presupuesto ejemplo para demo</h1>
+            <div class="sub">Muestra el flujo: conceptos, cantidades, calculo, indirectos, utilidad, insumos y salida para cliente.</div>
+          </div>
+          <div class="concept-tools">
+            <button class="btn" onclick="addConcept()">Agregar concepto demo</button>
+            <button class="btn primary" onclick="recalc()">Calcular presupuesto</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Codigo</th><th>Concepto</th><th>Unidad</th><th class="money">Cantidad</th><th class="money">P.U.</th><th class="money">Importe</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <div class="script">
+          <strong>Frase para decir en demo:</strong> "En vez de armar esto desde cero en Excel, Emma ya trae el catalogo, separa los costos, calcula indirectos y genera las salidas que normalmente pide el cliente o la obra."
+        </div>
+      </section>
+
+      <aside class="summary">
+        <h2>Resumen comercial</h2>
+        <div class="metric"><span>Conceptos</span><strong id="m-concepts">0</strong></div>
+        <div class="metric"><span>Costo directo</span><strong id="m-direct">$0.00</strong></div>
+        <div class="metric"><span>Indirectos 8.50%</span><strong id="m-indirect">$0.00</strong></div>
+        <div class="metric"><span>Imprevistos 5%</span><strong id="m-risk">$0.00</strong></div>
+        <div class="metric"><span>Utilidad 10%</span><strong id="m-profit">$0.00</strong></div>
+        <div class="total"><span>Total general</span><strong id="m-total">$0.00</strong></div>
+        <div class="exports">
+          <button class="btn" onclick="fakeExport('Excel')">Exportar Excel</button>
+          <button class="btn" onclick="fakeExport('Analisis de P.U.')">Analisis P.U.</button>
+          <button class="btn" onclick="fakeExport('PDF / impresion')">PDF / impresion</button>
+        </div>
+        <p class="demo-note" id="toast">La app completa incluye busqueda real en 6,185 conceptos y modulos de insumos, FASAR e indirectos.</p>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const fmt = n => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sample = [
+      ['10301-001','Trazo y nivelacion manual para establecer ejes y referencias','M2',400,11.76],
+      ['10304-023','Demolicion de piso de azulejo con retiro de pegazulejo','M2',250,61.45],
+      ['10401-012','Concreto premezclado f c 250 kg/cm2 en elementos estructurales','M3',28,3176.45],
+      ['11102-040','Pintura vinilica en muros interiores a dos manos','M2',620,51.26],
+      ['12206-345','Cable THW calibre 12 color blanco instalado y probado','M',360,24.07],
+    ];
+    let rows = sample.map(x => ({ code:x[0], concept:x[1], unit:x[2], qty:x[3], pu:x[4] }));
+
+    function renderRows() {
+      document.getElementById('rows').innerHTML = rows.map((r, i) => `
+        <tr>
+          <td class="code">${r.code}</td>
+          <td>${r.concept}</td>
+          <td>${r.unit}</td>
+          <td class="money"><input type="number" min="0" step="1" value="${r.qty}" oninput="rows[${i}].qty=parseFloat(this.value)||0; recalc()"></td>
+          <td class="money">${fmt(r.pu)}</td>
+          <td class="money">${fmt(r.qty * r.pu)}</td>
+        </tr>`).join('');
+    }
+
+    function recalc() {
+      renderRows();
+      const direct = rows.reduce((s, r) => s + r.qty * r.pu, 0);
+      const indirect = direct * .085;
+      const risk = direct * .05;
+      const profit = (direct + indirect + risk) * .10;
+      const total = direct + indirect + risk + profit;
+      document.getElementById('m-concepts').textContent = rows.length;
+      document.getElementById('m-direct').textContent = fmt(direct);
+      document.getElementById('m-indirect').textContent = fmt(indirect);
+      document.getElementById('m-risk').textContent = fmt(risk);
+      document.getElementById('m-profit').textContent = fmt(profit);
+      document.getElementById('m-total').textContent = fmt(total);
+    }
+
+    function addConcept() {
+      rows.push({
+        code: '11103-010',
+        concept: 'Suministro y colocacion de loseta ceramica en piso',
+        unit: 'M2',
+        qty: 80,
+        pu: 389.5,
+      });
+      recalc();
+      document.getElementById('toast').textContent = 'Concepto agregado. En la app completa esto se hace desde el buscador del catalogo.';
+    }
+
+    function fakeExport(type) {
+      document.getElementById('toast').textContent = type + ' disponible en Emma completa. Abre la app completa para probar la salida real.';
+    }
+
+    recalc();
+  </script>
+</body>
+</html>

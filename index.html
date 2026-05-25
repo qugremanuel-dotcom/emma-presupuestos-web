@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emma Presupuestos Pro</title>
+  <meta name="description" content="Sistema web para generar presupuestos de obra con base de precios, indirectos, FASAR, insumos, Excel y analisis de precios unitarios.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #17191f;
+      --muted: #626978;
+      --line: #d8dce6;
+      --paper: #fbfaf6;
+      --soft: #f0f3f7;
+      --gold: #c79a43;
+      --gold-dark: #8b6424;
+      --green: #186b55;
+      --blue: #225d8f;
+      --coral: #bd5636;
+      --white: #fff;
+      color-scheme: light;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font: inherit; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 68px;
+      padding: 0 36px;
+      border-bottom: 1px solid rgba(23, 25, 31, .1);
+      background: rgba(251, 250, 246, .92);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      background: var(--ink);
+      color: var(--gold);
+      font-weight: 800;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav a:hover { color: var(--ink); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--white);
+      color: var(--ink);
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 1px 0 rgba(23, 25, 31, .04);
+    }
+
+    .btn.primary {
+      border-color: var(--gold-dark);
+      background: var(--gold);
+      color: #16120a;
+    }
+
+    .btn.dark {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--white);
+    }
+
+    .hero {
+      position: relative;
+      min-height: calc(100vh - 68px);
+      overflow: hidden;
+      display: grid;
+      align-items: end;
+      padding: 54px 36px 42px;
+      border-bottom: 1px solid rgba(23, 25, 31, .1);
+      background:
+        linear-gradient(90deg, rgba(251,250,246,.98) 0%, rgba(251,250,246,.92) 38%, rgba(251,250,246,.58) 70%, rgba(251,250,246,.22) 100%),
+        linear-gradient(135deg, #f7efe1 0%, #e9eef4 42%, #dfeee8 100%);
+    }
+
+    .hero-stage {
+      position: absolute;
+      inset: 42px -120px auto auto;
+      width: min(860px, 68vw);
+      height: 590px;
+      transform: rotate(-2deg);
+      opacity: .96;
+      pointer-events: none;
+    }
+
+    .app-visual {
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(23, 25, 31, .22);
+      border-radius: 8px;
+      background: #f8f7f1;
+      box-shadow: 0 34px 80px rgba(23, 25, 31, .22);
+      overflow: hidden;
+    }
+
+    .visual-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 22px;
+      border-bottom: 1px solid #d6d3c9;
+      background: #fff;
+    }
+
+    .visual-title strong { display: block; font-size: 17px; }
+    .visual-title span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .visual-chip { padding: 8px 10px; border-radius: 6px; background: #ecf5f1; color: var(--green); font-size: 12px; font-weight: 800; }
+    .visual-grid { display: grid; grid-template-columns: 175px 1fr; min-height: 520px; }
+    .visual-side { padding: 18px 16px; border-right: 1px solid #d6d3c9; background: #eeece4; }
+    .visual-side div { margin-bottom: 9px; padding: 9px 10px; border-radius: 6px; color: #555b66; font-size: 12px; font-weight: 700; }
+    .visual-side .active { background: var(--ink); color: #fff; }
+    .visual-main { padding: 22px; }
+    .visual-toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+    .visual-toolbar span { height: 34px; border-radius: 6px; background: #fff; border: 1px solid #d6d3c9; }
+    .visual-toolbar span:nth-child(1) { width: 190px; }
+    .visual-toolbar span:nth-child(2) { width: 130px; background: var(--gold); border-color: var(--gold-dark); }
+    .visual-row {
+      display: grid;
+      grid-template-columns: 82px 1fr 70px 92px;
+      gap: 10px;
+      align-items: center;
+      min-height: 46px;
+      margin-bottom: 9px;
+      padding: 0 12px;
+      border: 1px solid #d6d3c9;
+      border-radius: 7px;
+      background: #fff;
+      font-size: 12px;
+    }
+    .visual-row strong { color: var(--blue); }
+    .visual-row span { color: var(--muted); }
+    .visual-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding: 20px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: #fff;
+    }
+    .visual-total span { color: #c9cbd0; font-size: 12px; }
+    .visual-total strong { font-size: 30px; color: var(--gold); }
+
+    .hero-copy {
+      position: relative;
+      z-index: 2;
+      max-width: 680px;
+      padding-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: var(--gold-dark);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: clamp(42px, 8vw, 84px);
+      line-height: .98;
+      letter-spacing: 0;
+    }
+
+    .hero-copy p {
+      max-width: 620px;
+      margin: 22px 0 0;
+      color: #393f4a;
+      font-size: 19px;
+      line-height: 1.55;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(120px, 1fr));
+      gap: 12px;
+      width: min(640px, 100%);
+      margin-top: 34px;
+    }
+
+    .stat {
+      padding: 15px 16px;
+      border: 1px solid rgba(23, 25, 31, .12);
+      border-radius: 8px;
+      background: rgba(255,255,255,.68);
+    }
+
+    .stat strong { display: block; font-size: 22px; }
+    .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+
+    .section {
+      padding: 76px 36px;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .section-head {
+      max-width: 760px;
+      margin-bottom: 34px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+    }
+
+    .section-head p {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .feature {
+      min-height: 184px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .feature .icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      margin-bottom: 18px;
+      border-radius: 7px;
+      background: var(--soft);
+      color: var(--blue);
+      font-weight: 900;
+    }
+
+    .feature h3 { margin: 0; font-size: 18px; }
+    .feature p { margin: 10px 0 0; color: var(--muted); line-height: 1.5; }
+
+    .demo-band {
+      background: #eef2f4;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .demo-layout {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .steps {
+      display: grid;
+      gap: 10px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .step b {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      background: var(--ink);
+      color: var(--gold);
+    }
+
+    .step strong { display: block; margin-bottom: 4px; }
+    .step span { color: var(--muted); line-height: 1.45; }
+
+    .pricing {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .price-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 430px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+    }
+
+    .price-card.featured {
+      border-color: var(--gold-dark);
+      box-shadow: 0 16px 50px rgba(139, 100, 36, .18);
+    }
+
+    .price-card h3 { margin: 0; font-size: 22px; }
+    .price { margin-top: 18px; font-size: 38px; font-weight: 800; }
+    .price small { color: var(--muted); font-size: 14px; font-weight: 600; }
+    .price-card p { min-height: 52px; color: var(--muted); line-height: 1.5; }
+    .price-card ul { display: grid; gap: 10px; margin: 18px 0 24px; padding: 0; list-style: none; }
+    .price-card li { color: #3f4652; }
+    .price-card li::before { content: "OK"; margin-right: 8px; color: var(--green); font-size: 11px; font-weight: 900; }
+    .price-card .btn { margin-top: auto; }
+
+    .closing {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+      padding: 34px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: #fff;
+    }
+
+    .closing h2 { margin: 0; font-size: 34px; }
+    .closing p { margin: 10px 0 0; color: #c9cbd0; line-height: 1.5; }
+
+    footer {
+      padding: 24px 36px 40px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .hero { min-height: auto; padding-top: 44px; }
+      .hero-stage {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        height: 430px;
+        margin: 30px 0 0;
+        transform: none;
+      }
+      .hero-copy { padding-bottom: 0; }
+      .feature-grid, .pricing, .demo-layout { grid-template-columns: 1fr; }
+      .nav { display: none; }
+      .closing { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .topbar, .hero, .section { padding-left: 18px; padding-right: 18px; }
+      .topbar { min-height: 62px; }
+      .hero-stats { grid-template-columns: 1fr; }
+      h1 { font-size: 42px; }
+      .hero-copy p { font-size: 17px; }
+      .hero-stage { height: 360px; }
+      .app-visual { min-width: 640px; transform: scale(.72); transform-origin: top left; }
+      .visual-grid { min-height: 455px; }
+      .price-card, .feature { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark">E</span>
+      <span>Emma Presupuestos Pro</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="#beneficios">Beneficios</a>
+      <a href="#demo">Demo</a>
+      <a href="#precios">Precios</a>
+      <a href="ventas/guion-demo.md">Guion</a>
+    </nav>
+    <a class="btn primary" href="demo.html">Ver demo</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Sistema web para presupuestos de obra</div>
+        <h1>Emma Presupuestos Pro</h1>
+        <p>Cotiza obra en minutos con base de 6,185 conceptos, calculo de indirectos, FASAR, insumos, analisis de precios unitarios, Excel e impresion profesional.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="demo.html">Abrir demo comercial</a>
+          <a class="btn dark" href="app/presupuesto_emma.html">Abrir app completa</a>
+          <a class="btn" href="ventas/mensajes.md">Copys de venta</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat"><strong>6,185</strong><span>conceptos depurados</span></div>
+          <div class="stat"><strong>5</strong><span>modulos de trabajo</span></div>
+          <div class="stat"><strong>MXN</strong><span>precios y reportes listos</span></div>
+        </div>
+      </div>
+
+      <div class="hero-stage" aria-hidden="true">
+        <div class="app-visual">
+          <div class="visual-head">
+            <div class="visual-title"><strong>Calculadora de Presupuesto</strong><span>Proyecto Emma - Base local</span></div>
+            <div class="visual-chip">Total listo para cliente</div>
+          </div>
+          <div class="visual-grid">
+            <div class="visual-side">
+              <div class="active">A - Preliminares</div>
+              <div>C - Demoliciones</div>
+              <div>F - Estructura</div>
+              <div>K - Acabados</div>
+              <div>M - Electrica</div>
+              <div>Indirectos</div>
+            </div>
+            <div class="visual-main">
+              <div class="visual-toolbar"><span></span><span></span></div>
+              <div class="visual-row"><strong>10301-001</strong><span>Trazo y nivelacion manual</span><b>M2</b><strong>$4,704</strong></div>
+              <div class="visual-row"><strong>10304-023</strong><span>Demolicion de piso de azulejo</span><b>M2</b><strong>$15,362</strong></div>
+              <div class="visual-row"><strong>10401-012</strong><span>Concreto f'c 250 kg/cm2</span><b>M3</b><strong>$88,940</strong></div>
+              <div class="visual-row"><strong>11102-040</strong><span>Pintura vinilica en muros</span><b>M2</b><strong>$31,780</strong></div>
+              <div class="visual-total"><span>Total general</span><strong>$246,890.00</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="beneficios">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Lo que se vende no es una plantilla: es velocidad, orden y confianza.</h2>
+          <p>Emma ayuda a que el usuario deje de rehacer presupuestos en Excel y entregue una propuesta clara, con numeros defendibles y salida profesional.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature"><div class="icon">01</div><h3>Base de precios</h3><p>Catalogo organizado por partidas con conceptos, unidades, materiales, mano de obra y precio unitario.</p></article>
+          <article class="feature"><div class="icon">02</div><h3>Calculo integral</h3><p>Costo directo, indirectos, utilidad, imprevistos y total general en pesos mexicanos.</p></article>
+          <article class="feature"><div class="icon">03</div><h3>FASAR y mano de obra</h3><p>Actualiza parametros laborales y recalcula mano de obra del presupuesto.</p></article>
+          <article class="feature"><div class="icon">04</div><h3>Insumos acumulados</h3><p>Concentrado de materiales, mano de obra, basicos y equipo para revisar compras y recursos.</p></article>
+          <article class="feature"><div class="icon">05</div><h3>Reportes comerciales</h3><p>Exporta Excel, desglose, analisis de P.U. e impresion para presentar al cliente.</p></article>
+          <article class="feature"><div class="icon">06</div><h3>Respaldo y licencia</h3><p>Flujo listo para demo, acceso con clave y respaldo del trabajo del usuario.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section demo-band" id="demo">
+      <div class="wrap demo-layout">
+        <div class="section-head">
+          <h2>Demo de cinco minutos para cerrar interes.</h2>
+          <p>La venta debe mostrar un presupuesto real en movimiento: datos de cliente, busqueda de conceptos, cantidades, calculo, insumos y salida final.</p>
+          <div class="hero-actions">
+            <a class="btn primary" href="demo.html">Practicar demo</a>
+            <a class="btn" href="ventas/guion-demo.md">Abrir guion</a>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step"><b>1</b><div><strong>Captura la obra</strong><span>Empresa, cliente, ubicacion, logo y fecha.</span></div></div>
+          <div class="step"><b>2</b><div><strong>Agrega conceptos</strong><span>Busca por codigo o descripcion y carga cantidades.</span></div></div>
+          <div class="step"><b>3</b><div><strong>Calcula y justifica</strong><span>Presenta directos, indirectos, utilidad, FASAR e insumos.</span></div></div>
+          <div class="step"><b>4</b><div><strong>Cierra con salida</strong><span>Excel, analisis de P.U. e impresion profesional.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="precios">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Paquetes sugeridos para salir a vender ya.</h2>
+          <p>Estos precios son una base inicial. Ajustalos despues de las primeras 10 demos reales.</p>
+        </div>
+        <div class="pricing">
+          <article class="price-card">
+            <h3>Mensual</h3>
+            <div class="price">$399 <small>MXN/mes</small></div>
+            <p>Para usuarios que quieren probar Emma en proyectos reales sin compromiso largo.</p>
+            <ul>
+              <li>Acceso a la app completa</li>
+              <li>Base de conceptos incluida</li>
+              <li>Exportacion e impresion</li>
+              <li>Soporte por WhatsApp</li>
+            </ul>
+            <a class="btn" href="ventas/mensajes.md">Vender mensual</a>
+          </article>
+          <article class="price-card featured">
+            <h3>Anual Pro</h3>
+            <div class="price">$3,499 <small>MXN/ano</small></div>
+            <p>La oferta principal: suficiente valor, menor friccion y mejor ingreso anticipado.</p>
+            <ul>
+              <li>Todo lo del plan mensual</li>
+              <li>Capacitacion inicial de 45 min</li>
+              <li>Plantilla de demo incluida</li>
+              <li>Precio fundador para primeros clientes</li>
+            </ul>
+            <a class="btn primary" href="ventas/mensajes.md">Usar oferta principal</a>
+          </article>
+          <article class="price-card">
+            <h3>Implementacion</h3>
+            <div class="price">$1,500 <small>MXN</small></div>
+            <p>Servicio adicional para configurar al cliente y acelerar la adopcion.</p>
+            <ul>
+              <li>Logo y datos iniciales</li>
+              <li>Capacitacion personalizada</li>
+              <li>Primer presupuesto guiado</li>
+              <li>Ajustes menores de arranque</li>
+            </ul>
+            <a class="btn" href="ventas/checklist-lanzamiento.md">Ver checklist</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap closing">
+        <div>
+          <h2>Proximo paso: agenda demos, no explicaciones largas.</h2>
+          <p>Usa el mensaje comercial, manda el video/demo y busca que el prospecto vea Emma resolviendo un presupuesto parecido a los suyos.</p>
+        </div>
+        <a class="btn primary" href="ventas/plan-30-prospectos.md">Plan de 30 prospectos</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Emma Presupuestos Pro - Paquete comercial listo para demo - Mexico
+  </footer>
+</body>
+</html>
