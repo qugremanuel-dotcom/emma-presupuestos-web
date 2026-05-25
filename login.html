@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Emma Presupuestos — Acceso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:    #C8A96E;
+      --gold-dk: #A88748;
+      --bg:      #161616;
+      --card:    #1E1E1E;
+      --border:  #2A2A2A;
+      --ink-1:   #F0E6CE;
+      --ink-2:   #B8A888;
+      --ink-3:   #666;
+      --red:     #E07070;
+      --red-bg:  rgba(220,60,60,.10);
+      --red-br:  rgba(220,60,60,.30);
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      padding: 20px;
+    }
+
+    /* fondo sutil con patrón de líneas */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(200,169,110,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200,169,110,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 52px 44px 44px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(200,169,110,.06);
+    }
+
+    /* franja dorada superior */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 24px; right: 24px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* ── Logo ── */
+    .logo {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 68px;
+      height: 68px;
+      border-radius: 18px;
+      background: linear-gradient(145deg, #C8A96E 0%, #8A6830 100%);
+      box-shadow: 0 8px 24px rgba(200,169,110,.28);
+      margin-bottom: 18px;
+    }
+    .logo-icon svg { width: 34px; height: 34px; fill: #fff; }
+    .logo-name {
+      font-family: 'Playfair Display', 'Baskerville', serif;
+      font-size: 24px;
+      color: var(--ink-1);
+      letter-spacing: -0.2px;
+    }
+    .logo-tagline {
+      font-size: 11px;
+      color: var(--ink-3);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* ── Heading ── */
+    .heading {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink-2);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-dk);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(0,0,0,.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--ink-1);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(200,169,110,.12);
+    }
+    input::placeholder { color: #3A3A3A; }
+    input[name="key"] {
+      font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      font-size: 15px;
+    }
+
+    /* ── Botón ── */
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #C8A96E 0%, #9A7438 100%);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 8px;
+      letter-spacing: 0.15px;
+      transition: opacity .15s, transform .1s;
+      box-shadow: 0 4px 14px rgba(200,169,110,.25);
+    }
+    .btn-login:hover:not(:disabled) { opacity: .88; }
+    .btn-login:active:not(:disabled) { transform: scale(.99); }
+    .btn-login:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Error ── */
+    .error-box {
+      display: none;
+      background: var(--red-bg);
+      border: 1px solid var(--red-br);
+      border-radius: 9px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--red);
+      margin-top: 16px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ── Footer ── */
+    .footer-note {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+      color: #3D3D3D;
+    }
+    .footer-note a {
+      color: #6A5430;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .footer-note a:hover { color: var(--gold); }
+
+    @media (max-width: 480px) {
+      .card { padding: 40px 24px 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <!-- icono de presupuesto / lista con líneas -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4h16v2H4V4zm0 5h16v2H4V9zm0 5h10v2H4v-2zm0 5h7v2H4v-2z"/>
+        </svg>
+      </div>
+      <div class="logo-name">Emma Presupuestos</div>
+      <div class="logo-tagline">Gestión profesional de obra</div>
+    </div>
+
+    <p class="heading">Ingresa con tu correo y clave de licencia</p>
+
+    <form id="loginForm" autocomplete="off" onsubmit="doLogin(event)">
+      <div class="field">
+        <label for="email">Correo electrónico</label>
+        <input id="email" name="email" type="email"
+               placeholder="usuario@empresa.com"
+               required autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label for="key">Clave de licencia</label>
+        <input id="key" name="key" type="text"
+               placeholder="EMMA-XXXX-XX-XXXXXX"
+               required autocomplete="off"
+               maxlength="19"
+               oninput="fmtKey(this)"
+               spellcheck="false"/>
+      </div>
+      <button type="submit" class="btn-login" id="btnLogin">Ingresar</button>
+      <div class="error-box" id="errBox"></div>
+    </form>
+
+    <div class="footer-note">
+      ¿Necesitas tu clave?
+      <a href="mailto:soporte@emma-presupuestos.com">Contacta al soporte</a>
+    </div>
+  </div>
+
+  <script>
+    // Formateo automático: EMMA-CCCC-YY-HHHHHH (4-4-2-6)
+    function fmtKey(input) {
+      const raw  = input.value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+      const segs = [4, 4, 2, 6];
+      let out = '', pos = 0;
+      for (let si = 0; si < segs.length && pos < raw.length; si++) {
+        if (si > 0) out += '-';
+        out += raw.slice(pos, pos + segs[si]);
+        pos += segs[si];
+      }
+      input.value = out;
+    }
+
+    async function doLogin(e) {
+      e.preventDefault();
+      const btn    = document.getElementById('btnLogin');
+      const errBox = document.getElementById('errBox');
+      const email  = document.getElementById('email').value.trim();
+      const key    = document.getElementById('key').value.trim().toUpperCase();
+
+      btn.disabled    = true;
+      btn.textContent = 'Verificando…';
+      errBox.style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email, key })
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.ok) {
+          btn.textContent = '✓ Acceso concedido';
+          window.location.href = '/app';
+        } else {
+          errBox.textContent = data.error || 'Error al ingresar.';
+          errBox.style.display = 'block';
+          btn.disabled    = false;
+          btn.textContent = 'Ingresar';
+        }
+      } catch {
+        errBox.textContent = 'Error de conexión. Intenta de nuevo.';
+        errBox.style.display = 'block';
+        btn.disabled    = false;
+        btn.textContent = 'Ingresar';
+      }
+    }
+  </script>
+</body>
+</html>

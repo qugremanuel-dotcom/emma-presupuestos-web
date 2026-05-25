@@ -1253,7 +1253,11 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <div class="brand">Calculadora de Presupuesto</div>
         <div class="brand-sub">Proyecto Emma · 6,185 conceptos</div>
       </div>
-      <div class="head-meta" id="dateLabel">—</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="head-meta" id="dateLabel">—</div>
+        <div id="lic-badge" style="display:none;font-size:10px;color:#A88748;font-family:ui-monospace,monospace;background:#FBF5E6;border:1px solid #E8D5A0;border-radius:4px;padding:2px 7px;letter-spacing:0.06em"></div>
+        <button id="header-logout-btn" onclick="changeLicense()" style="display:none;font-size:10px;color:#888;background:none;border:none;cursor:pointer;padding:0;letter-spacing:0.03em">⎋ Cerrar sesión</button>
+      </div>
     </div>
     <div class="proj-grid">
       <div class="field">
@@ -1776,7 +1780,13 @@ function showLoadError(msg) {
 }
 function changeLicense() {
   localStorage.removeItem('emma_license_key');
-  location.reload();
+  const WEB_DOMAINS = ['emma-presupuestos.com', 'emma-presupuestos-web.up.railway.app'];
+  const isWebMode   = WEB_DOMAINS.some(d => location.hostname === d || location.hostname.endsWith('.' + d));
+  if (isWebMode) {
+    fetch('/api/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; });
+  } else {
+    location.reload();
+  }
 }
 function submitLicense() {
   const input = document.getElementById('emma-key-input');
@@ -1834,6 +1844,17 @@ function startInit() {
   I_DICT      = window.INSUMOS_DICT      || {};
   I_BREAKDOWN = window.INSUMOS_BREAKDOWN || {};
   hideLoading();
+  // Badge de licencia + botón de logout en header
+  const _lc = getLicenseClientCode();
+  const _lb = document.getElementById('lic-badge');
+  if (_lb && _lc) { _lb.textContent = `Lic. ${_lc}`; _lb.style.display = 'block'; }
+  const _logoutBtn = document.getElementById('header-logout-btn');
+  if (_logoutBtn) {
+    const WEB_DOMAINS = ['emma-presupuestos.com', 'emma-presupuestos-web.up.railway.app'];
+    if (WEB_DOMAINS.some(d => location.hostname === d || location.hostname.endsWith('.' + d))) {
+      _logoutBtn.style.display = 'block';
+    }
+  }
   load();
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
@@ -5576,6 +5597,25 @@ function toast(msg) {
 // INIT
 // ========================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Dominios del servidor web con autenticación de sesión
+  const WEB_DOMAINS = ['emma-presupuestos.com', 'emma-presupuestos-web.up.railway.app'];
+  const isWebMode   = WEB_DOMAINS.some(d => location.hostname === d || location.hostname.endsWith('.' + d));
+
+  if (isWebMode) {
+    // Verificar sesión activa y obtener clave del servidor
+    fetch('/api/me').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(data => {
+      if (data.key) localStorage.setItem('emma_license_key', data.key);
+      if (validateLicenseKey(getLicenseKey())) {
+        showLoading('Iniciando…');
+        startInit();
+      } else {
+        window.location.href = '/login';
+      }
+    }).catch(() => { window.location.href = '/login'; });
+    return;
+  }
+
+  // Modo offline / validación con servidor EMMA
   const key = getLicenseKey();
   if (key && validateLicenseKey(key)) {
     showLoading('Verificando licencia…');
