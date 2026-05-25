@@ -227,33 +227,34 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── Restricción de dispositivos (máx. MAX_DEVICES) ────────────────────
-    let devId       = cookies[DEVICE_COOKIE];
-    const isNewDev  = !devId || !/^[0-9a-f-]{36}$/.test(devId);
-    if (isNewDev) devId = crypto.randomUUID();
+    // Los usuarios admin (user.admin === true) no tienen restricción de dispositivos
+    if (!user.admin) {
+      let devId       = cookies[DEVICE_COOKIE];
+      const isNewDev  = !devId || !/^[0-9a-f-]{36}$/.test(devId);
+      if (isNewDev) devId = crypto.randomUUID();
 
-    const extraHeaders = {};
-
-    if (!hasDevice(email, devId)) {
-      // Dispositivo no registrado aún
-      if (deviceCount(email) >= MAX_DEVICES) {
-        return sendJSON(res, 403, {
-          error: `Esta licencia ya está activada en ${MAX_DEVICES} dispositivos. ` +
-                 `Contacta a soporte@emma-presupuestos.com para liberar un dispositivo.`
-        });
+      if (!hasDevice(email, devId)) {
+        // Dispositivo no registrado aún
+        if (deviceCount(email) >= MAX_DEVICES) {
+          return sendJSON(res, 403, {
+            error: `Esta licencia ya está activada en ${MAX_DEVICES} dispositivos. ` +
+                   `Contacta a soporte@emma-presupuestos.com para liberar un dispositivo.`
+          });
+        }
+        registerDevice(email, devId);
       }
-      registerDevice(email, devId);
-    }
 
-    if (isNewDev) {
-      // Enviar cookie de dispositivo junto con la de sesión
-      const token   = createSession(user.email, user.name || email, user.key);
-      const sessCk  = makeCookie(token, Math.floor(SESSION_TTL / 1000));
-      const devCk   = makeDeviceCookie(devId);
-      res.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Set-Cookie"  : [sessCk, devCk],
-      });
-      return res.end(JSON.stringify({ ok: true, name: user.name || email }));
+      if (isNewDev) {
+        // Enviar cookie de dispositivo junto con la de sesión
+        const token   = createSession(user.email, user.name || email, user.key);
+        const sessCk  = makeCookie(token, Math.floor(SESSION_TTL / 1000));
+        const devCk   = makeDeviceCookie(devId);
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Set-Cookie"  : [sessCk, devCk],
+        });
+        return res.end(JSON.stringify({ ok: true, name: user.name || email }));
+      }
     }
 
     const token  = createSession(user.email, user.name || email, user.key);
