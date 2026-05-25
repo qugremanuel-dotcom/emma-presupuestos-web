@@ -5602,16 +5602,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const isWebMode   = WEB_DOMAINS.some(d => location.hostname === d || location.hostname.endsWith('.' + d));
 
   if (isWebMode) {
-    // Verificar sesión activa y obtener clave del servidor
-    fetch('/api/me').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(data => {
-      if (data.key) localStorage.setItem('emma_license_key', data.key);
-      if (validateLicenseKey(getLicenseKey())) {
-        showLoading('Iniciando…');
-        startInit();
-      } else {
-        window.location.href = '/login';
-      }
-    }).catch(() => { window.location.href = '/login'; });
+    // El servidor ya autenticó la sesión antes de entregar esta página.
+    // Iniciar la app directamente; obtener la clave para el badge en paralelo.
+    showLoading('Iniciando…');
+    startInit();
+    fetch('/api/me').then(r => r.ok ? r.json() : null).then(data => {
+      if (!data || !data.key) return;
+      localStorage.setItem('emma_license_key', data.key);
+      const _lc = data.key.split('-')[1] || '';
+      const _lb = document.getElementById('lic-badge');
+      if (_lb && _lc) { _lb.textContent = `Lic. ${_lc}`; _lb.style.display = 'block'; }
+    }).catch(() => {});
     return;
   }
 
