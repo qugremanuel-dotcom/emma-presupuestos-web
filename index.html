@@ -3,588 +3,814 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Emma Presupuestos Pro</title>
-  <meta name="description" content="Sistema web para generar presupuestos de obra con base de precios, indirectos, FASAR, insumos, Excel y analisis de precios unitarios.">
+  <title>Emma Presupuestos Pro — Presupuesta obra en minutos</title>
+  <meta name="description" content="Genera presupuestos de construcción profesionales en minutos. Base de 6,185 conceptos, indirectos, FASAR, insumos, Excel y PDF. Para contratistas y arquitectos en México.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #17191f;
-      --muted: #626978;
-      --line: #d8dce6;
-      --paper: #fbfaf6;
-      --soft: #f0f3f7;
-      --gold: #c79a43;
+      --ink:       #17191f;
+      --ink2:      #2e3138;
+      --muted:     #626978;
+      --line:      #d8dce6;
+      --paper:     #fbfaf6;
+      --soft:      #f0f3f7;
+      --gold:      #c79a43;
       --gold-dark: #8b6424;
-      --green: #186b55;
-      --blue: #225d8f;
-      --coral: #bd5636;
-      --white: #fff;
+      --gold-bg:   #fdf6e9;
+      --green:     #186b55;
+      --green-bg:  #ecf5f1;
+      --blue:      #225d8f;
+      --red:       #c0392b;
+      --red-bg:    #fdf3f2;
+      --white:     #fff;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
       color-scheme: light;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--ink);
-      letter-spacing: 0;
-    }
-
+    body { background: var(--paper); color: var(--ink); line-height: 1.6; }
     a { color: inherit; text-decoration: none; }
-    button, input, select, textarea { font: inherit; }
+    img { display: block; max-width: 100%; }
 
+    /* ── TOPBAR ──────────────────────────────────────────── */
     .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      min-height: 68px;
-      padding: 0 36px;
-      border-bottom: 1px solid rgba(23, 25, 31, .1);
-      background: rgba(251, 250, 246, .92);
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      min-height: 66px; padding: 0 40px;
+      border-bottom: 1px solid rgba(23,25,31,.1);
+      background: rgba(251,250,246,.94);
       backdrop-filter: blur(16px);
     }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 800;
-    }
-
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 15px; }
     .brand-mark {
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 7px;
-      background: var(--ink);
-      color: var(--gold);
-      font-weight: 800;
+      display: grid; place-items: center;
+      width: 32px; height: 32px; border-radius: 7px;
+      background: var(--ink); color: var(--gold); font-weight: 900; font-size: 15px;
     }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      color: var(--muted);
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .nav a:hover { color: var(--ink); }
-
+    .topnav { display: flex; align-items: center; gap: 22px; font-size: 14px; font-weight: 600; color: var(--muted); }
+    .topnav a:hover { color: var(--ink); }
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 42px;
-      padding: 0 18px;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: var(--white);
-      color: var(--ink);
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 1px 0 rgba(23, 25, 31, .04);
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 40px; padding: 0 18px;
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--white); color: var(--ink);
+      font-weight: 700; font-size: 14px; cursor: pointer;
+      transition: box-shadow .15s, transform .15s;
     }
+    .btn:hover { box-shadow: 0 4px 14px rgba(23,25,31,.1); transform: translateY(-1px); }
+    .btn.gold { border-color: var(--gold-dark); background: var(--gold); color: #16120a; }
+    .btn.gold:hover { background: #d4a84a; }
+    .btn.dark { border-color: var(--ink); background: var(--ink); color: var(--white); }
+    .btn.dark:hover { background: var(--ink2); }
+    .btn.lg { min-height: 48px; padding: 0 26px; font-size: 15px; }
+    .btn.xl { min-height: 54px; padding: 0 32px; font-size: 16px; border-radius: 9px; }
 
-    .btn.primary {
-      border-color: var(--gold-dark);
-      background: var(--gold);
-      color: #16120a;
-    }
-
-    .btn.dark {
-      border-color: var(--ink);
-      background: var(--ink);
-      color: var(--white);
-    }
-
+    /* ── HERO ────────────────────────────────────────────── */
     .hero {
-      position: relative;
-      min-height: calc(100vh - 68px);
-      overflow: hidden;
-      display: grid;
-      align-items: end;
-      padding: 54px 36px 42px;
-      border-bottom: 1px solid rgba(23, 25, 31, .1);
+      position: relative; overflow: hidden;
+      min-height: calc(100vh - 66px);
+      display: grid; align-items: center;
+      padding: 64px 40px 56px;
+      border-bottom: 1px solid rgba(23,25,31,.1);
       background:
-        linear-gradient(90deg, rgba(251,250,246,.98) 0%, rgba(251,250,246,.92) 38%, rgba(251,250,246,.58) 70%, rgba(251,250,246,.22) 100%),
-        linear-gradient(135deg, #f7efe1 0%, #e9eef4 42%, #dfeee8 100%);
+        linear-gradient(90deg, rgba(251,250,246,.99) 0%, rgba(251,250,246,.95) 40%, rgba(251,250,246,.55) 72%, rgba(251,250,246,.1) 100%),
+        linear-gradient(135deg, #f9f0e0 0%, #eaeef5 45%, #ddeee8 100%);
     }
+    .hero-copy { position: relative; z-index: 2; max-width: 640px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-bottom: 20px; padding: 5px 14px;
+      border: 1px solid rgba(139,100,36,.25); border-radius: 20px;
+      background: rgba(199,154,67,.1);
+      color: var(--gold-dark); font-size: 12px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .8px;
+    }
+    .hero h1 {
+      font-size: clamp(42px, 7vw, 80px);
+      line-height: .95; letter-spacing: -2px; font-weight: 900;
+    }
+    .hero h1 em { color: var(--gold-dark); font-style: normal; }
+    .hero-sub {
+      margin-top: 22px; max-width: 580px;
+      color: #3e4452; font-size: 19px; line-height: 1.55;
+    }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .hero-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+    .hero-proof {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px;
+    }
+    .proof-chip {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 14px;
+      border: 1px solid rgba(23,25,31,.11); border-radius: 7px;
+      background: rgba(255,255,255,.72);
+      font-size: 13px; font-weight: 700;
+    }
+    .proof-chip .num { color: var(--gold-dark); font-size: 18px; font-weight: 900; }
 
-    .hero-stage {
-      position: absolute;
-      inset: 42px -120px auto auto;
-      width: min(860px, 68vw);
-      height: 590px;
-      transform: rotate(-2deg);
-      opacity: .96;
+    /* app mockup */
+    .hero-visual {
+      position: absolute; inset: 36px -80px auto auto;
+      width: min(860px, 65vw); height: 580px;
+      transform: rotate(-2.5deg);
       pointer-events: none;
     }
-
-    .app-visual {
-      width: 100%;
-      height: 100%;
-      border: 1px solid rgba(23, 25, 31, .22);
-      border-radius: 8px;
+    .app-frame {
+      width: 100%; height: 100%;
+      border: 1px solid rgba(23,25,31,.22); border-radius: 10px;
       background: #f8f7f1;
-      box-shadow: 0 34px 80px rgba(23, 25, 31, .22);
-      overflow: hidden;
+      box-shadow: 0 40px 90px rgba(23,25,31,.24), 0 4px 16px rgba(23,25,31,.1);
+      overflow: hidden; display: flex; flex-direction: column;
     }
-
-    .visual-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 18px 22px;
-      border-bottom: 1px solid #d6d3c9;
-      background: #fff;
+    .af-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 22px; border-bottom: 1px solid #d6d3c9; background: #fff;
+      flex-shrink: 0;
     }
-
-    .visual-title strong { display: block; font-size: 17px; }
-    .visual-title span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .visual-chip { padding: 8px 10px; border-radius: 6px; background: #ecf5f1; color: var(--green); font-size: 12px; font-weight: 800; }
-    .visual-grid { display: grid; grid-template-columns: 175px 1fr; min-height: 520px; }
-    .visual-side { padding: 18px 16px; border-right: 1px solid #d6d3c9; background: #eeece4; }
-    .visual-side div { margin-bottom: 9px; padding: 9px 10px; border-radius: 6px; color: #555b66; font-size: 12px; font-weight: 700; }
-    .visual-side .active { background: var(--ink); color: #fff; }
-    .visual-main { padding: 22px; }
-    .visual-toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
-    .visual-toolbar span { height: 34px; border-radius: 6px; background: #fff; border: 1px solid #d6d3c9; }
-    .visual-toolbar span:nth-child(1) { width: 190px; }
-    .visual-toolbar span:nth-child(2) { width: 130px; background: var(--gold); border-color: var(--gold-dark); }
-    .visual-row {
-      display: grid;
-      grid-template-columns: 82px 1fr 70px 92px;
-      gap: 10px;
-      align-items: center;
-      min-height: 46px;
-      margin-bottom: 9px;
-      padding: 0 12px;
-      border: 1px solid #d6d3c9;
-      border-radius: 7px;
-      background: #fff;
-      font-size: 12px;
+    .af-head-info strong { font-size: 16px; }
+    .af-head-info span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .af-head-badge { padding: 7px 12px; border-radius: 6px; background: var(--green-bg); color: var(--green); font-size: 11px; font-weight: 800; }
+    .af-body { display: grid; grid-template-columns: 175px 1fr; flex: 1; min-height: 0; }
+    .af-side { padding: 16px 14px; border-right: 1px solid #d6d3c9; background: #eeecea; }
+    .af-side-row {
+      padding: 8px 10px; margin-bottom: 7px; border-radius: 6px;
+      font-size: 11.5px; font-weight: 700; color: #606570;
+      display: flex; justify-content: space-between;
     }
-    .visual-row strong { color: var(--blue); }
-    .visual-row span { color: var(--muted); }
-    .visual-total {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 18px;
-      padding: 20px;
-      border-radius: 8px;
-      background: var(--ink);
-      color: #fff;
+    .af-side-row.active { background: var(--ink); color: #fff; }
+    .af-side-row.active span { color: var(--gold); }
+    .af-side-row span { font-size: 11px; color: #888; font-weight: 600; }
+    .af-main { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+    .af-toolbar { display: flex; gap: 8px; margin-bottom: 4px; }
+    .af-btn { height: 32px; border-radius: 6px; background: #fff; border: 1px solid #d6d3c9; font-size: 11px; font-weight: 700; color: var(--muted); padding: 0 12px; }
+    .af-btn.g { background: var(--gold); border-color: var(--gold-dark); color: #16120a; }
+    .af-row {
+      display: grid; grid-template-columns: 28px 1fr 52px 52px 88px;
+      gap: 8px; align-items: center;
+      padding: 10px 12px; border: 1px solid #d6d3c9; border-radius: 7px;
+      background: #fff; font-size: 11.5px;
     }
-    .visual-total span { color: #c9cbd0; font-size: 12px; }
-    .visual-total strong { font-size: 30px; color: var(--gold); }
-
-    .hero-copy {
-      position: relative;
-      z-index: 2;
-      max-width: 680px;
-      padding-bottom: 28px;
+    .af-row .cod { color: var(--blue); font-weight: 800; font-size: 10px; }
+    .af-row .desc { color: var(--ink2); font-weight: 600; line-height: 1.3; }
+    .af-row .unit { color: var(--muted); font-size: 10px; text-align: center; }
+    .af-row .cant { text-align: right; color: var(--muted); }
+    .af-row .imp { text-align: right; font-weight: 800; color: var(--ink); }
+    .af-total {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: auto; padding: 18px 20px;
+      border-radius: 8px; background: var(--ink); color: #fff;
     }
+    .af-total-left span { font-size: 11px; color: #9ca0a8; }
+    .af-total-left strong { display: block; font-size: 28px; color: var(--gold); line-height: 1; margin-top: 2px; }
+    .af-total-right { display: flex; flex-direction: column; gap: 4px; text-align: right; }
+    .af-total-right span { font-size: 10px; color: #9ca0a8; }
+    .af-total-right b { font-size: 12px; color: #c9cbd0; }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-      color: var(--gold-dark);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
+    /* ── PROBLEMAS ───────────────────────────────────────── */
+    .prob-section { background: #fffbf7; border-bottom: 1px solid var(--line); }
+    .prob-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+    .prob-card {
+      padding: 26px; border-radius: 10px;
+      background: var(--white); border-left: 3px solid var(--red);
+      box-shadow: 0 2px 10px rgba(23,25,31,.06);
     }
+    .prob-icon { font-size: 28px; margin-bottom: 12px; }
+    .prob-card h3 { font-size: 15px; font-weight: 800; color: var(--red); margin-bottom: 8px; }
+    .prob-card p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
 
-    h1 {
-      margin: 0;
-      max-width: 780px;
-      font-size: clamp(42px, 8vw, 84px);
-      line-height: .98;
-      letter-spacing: 0;
+    /* ── COMO FUNCIONA ───────────────────────────────────── */
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .step-card {
+      display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start;
+      padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--white);
     }
-
-    .hero-copy p {
-      max-width: 620px;
-      margin: 22px 0 0;
-      color: #393f4a;
-      font-size: 19px;
-      line-height: 1.55;
+    .step-num {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--ink); color: var(--gold); font-weight: 900; font-size: 16px;
+      flex-shrink: 0;
     }
+    .step-card strong { display: block; font-size: 15px; margin-bottom: 4px; }
+    .step-card span { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 30px;
+    /* ── BENEFICIOS ──────────────────────────────────────── */
+    .feat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .feat-card {
+      padding: 26px; border: 1px solid var(--line); border-radius: 10px;
+      background: var(--white); transition: transform .2s, box-shadow .2s;
     }
-
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(120px, 1fr));
-      gap: 12px;
-      width: min(640px, 100%);
-      margin-top: 34px;
+    .feat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(23,25,31,.1); }
+    .feat-icon {
+      display: grid; place-items: center;
+      width: 42px; height: 42px; border-radius: 8px;
+      background: var(--soft); font-size: 20px; margin-bottom: 16px;
     }
+    .feat-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+    .feat-card p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
 
-    .stat {
-      padding: 15px 16px;
-      border: 1px solid rgba(23, 25, 31, .12);
-      border-radius: 8px;
-      background: rgba(255,255,255,.68);
-    }
+    /* ── COMPARACIÓN ─────────────────────────────────────── */
+    .comp-section { background: var(--soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .comp-table { width: 100%; border-collapse: collapse; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(23,25,31,.08); }
+    .comp-table thead th { padding: 16px 20px; text-align: left; font-size: 14px; font-weight: 800; background: var(--ink); color: var(--white); }
+    .comp-table thead th.hi { background: var(--gold-dark); color: #fff; }
+    .comp-table td { padding: 13px 20px; border-bottom: 1px solid #e8e8e8; font-size: 14px; background: var(--white); }
+    .comp-table td.hi { background: var(--gold-bg); font-weight: 700; }
+    .comp-table tr:last-child td { border-bottom: none; }
+    .ok { color: var(--green); font-weight: 800; }
+    .no { color: var(--red); }
 
-    .stat strong { display: block; font-size: 22px; }
-    .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
-
-    .section {
-      padding: 76px 36px;
-    }
-
-    .wrap {
-      max-width: 1180px;
-      margin: 0 auto;
-    }
-
-    .section-head {
-      max-width: 760px;
-      margin-bottom: 34px;
-    }
-
-    .section-head h2 {
-      margin: 0;
-      font-size: clamp(30px, 4vw, 48px);
-      line-height: 1.05;
-    }
-
-    .section-head p {
-      margin: 14px 0 0;
-      color: var(--muted);
-      font-size: 17px;
-      line-height: 1.55;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .feature {
-      min-height: 184px;
-      padding: 22px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--white);
-    }
-
-    .feature .icon {
-      display: grid;
-      place-items: center;
-      width: 38px;
-      height: 38px;
-      margin-bottom: 18px;
-      border-radius: 7px;
-      background: var(--soft);
-      color: var(--blue);
-      font-weight: 900;
-    }
-
-    .feature h3 { margin: 0; font-size: 18px; }
-    .feature p { margin: 10px 0 0; color: var(--muted); line-height: 1.5; }
-
-    .demo-band {
-      background: #eef2f4;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .demo-layout {
-      display: grid;
-      grid-template-columns: .9fr 1.1fr;
-      gap: 28px;
-      align-items: center;
-    }
-
-    .steps {
-      display: grid;
-      gap: 10px;
-    }
-
-    .step {
-      display: grid;
-      grid-template-columns: 34px 1fr;
-      gap: 12px;
-      align-items: start;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--white);
-    }
-
-    .step b {
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 7px;
-      background: var(--ink);
-      color: var(--gold);
-    }
-
-    .step strong { display: block; margin-bottom: 4px; }
-    .step span { color: var(--muted); line-height: 1.45; }
-
-    .pricing {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }
-
+    /* ── PRECIOS ─────────────────────────────────────────── */
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1000px; margin: 0 auto; }
     .price-card {
-      display: flex;
-      flex-direction: column;
-      min-height: 430px;
-      padding: 26px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--white);
+      display: flex; flex-direction: column;
+      padding: 28px; border: 1px solid var(--line); border-radius: 10px;
+      background: var(--white); position: relative;
     }
-
     .price-card.featured {
       border-color: var(--gold-dark);
-      box-shadow: 0 16px 50px rgba(139, 100, 36, .18);
+      box-shadow: 0 20px 60px rgba(139,100,36,.18);
     }
-
-    .price-card h3 { margin: 0; font-size: 22px; }
-    .price { margin-top: 18px; font-size: 38px; font-weight: 800; }
-    .price small { color: var(--muted); font-size: 14px; font-weight: 600; }
-    .price-card p { min-height: 52px; color: var(--muted); line-height: 1.5; }
-    .price-card ul { display: grid; gap: 10px; margin: 18px 0 24px; padding: 0; list-style: none; }
-    .price-card li { color: #3f4652; }
-    .price-card li::before { content: "OK"; margin-right: 8px; color: var(--green); font-size: 11px; font-weight: 900; }
-    .price-card .btn { margin-top: auto; }
-
-    .closing {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 24px;
-      align-items: center;
-      padding: 34px;
-      border-radius: 8px;
-      background: var(--ink);
-      color: #fff;
+    .price-badge {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      padding: 4px 18px; border-radius: 20px;
+      background: var(--gold-dark); color: var(--white);
+      font-size: 11px; font-weight: 800; white-space: nowrap; letter-spacing: .3px;
     }
+    .price-name { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+    .price-amount { display: flex; align-items: flex-end; gap: 4px; margin-bottom: 4px; }
+    .price-amount strong { font-size: 44px; font-weight: 900; line-height: 1; }
+    .price-amount .cur { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+    .price-amount .per { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+    .price-old { font-size: 13px; color: var(--muted); text-decoration: line-through; margin-bottom: 6px; }
+    .price-desc { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin-bottom: 20px; min-height: 48px; }
+    .price-list { list-style: none; display: grid; gap: 9px; margin-bottom: 24px; }
+    .price-list li { font-size: 13.5px; color: var(--ink2); display: flex; gap: 8px; align-items: flex-start; }
+    .price-list li::before { content: '✓'; color: var(--green); font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+    .price-card .btn { margin-top: auto; width: 100%; justify-content: center; }
+    .price-note { font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 10px; }
+    .garantia {
+      margin-top: 32px; padding: 22px 28px;
+      border-radius: 10px; background: var(--green-bg);
+      border: 1px solid rgba(24,107,85,.2);
+      display: flex; align-items: center; gap: 16px;
+      max-width: 600px; margin-left: auto; margin-right: auto;
+    }
+    .garantia-icon { font-size: 36px; flex-shrink: 0; }
+    .garantia strong { display: block; font-size: 15px; font-weight: 800; color: var(--green); margin-bottom: 4px; }
+    .garantia span { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 
-    .closing h2 { margin: 0; font-size: 34px; }
-    .closing p { margin: 10px 0 0; color: #c9cbd0; line-height: 1.5; }
+    /* ── TESTIMONIOS ─────────────────────────────────────── */
+    .test-section { background: var(--soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .test-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+    .test-card {
+      padding: 28px; border-radius: 10px;
+      background: var(--white); border: 1px solid var(--line);
+      box-shadow: 0 2px 12px rgba(23,25,31,.05);
+      position: relative;
+    }
+    .test-stars { color: var(--gold); font-size: 15px; margin-bottom: 14px; letter-spacing: 2px; }
+    .test-text { font-size: 14px; color: var(--ink2); line-height: 1.7; font-style: italic; margin-bottom: 20px; }
+    .test-author { display: flex; align-items: center; gap: 12px; }
+    .test-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      display: grid; place-items: center;
+      color: var(--white); font-weight: 800; font-size: 15px; flex-shrink: 0;
+    }
+    .test-name { font-size: 14px; font-weight: 800; }
+    .test-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
+    /* ── FAQ ─────────────────────────────────────────────── */
+    .faq-list { max-width: 720px; margin: 0 auto; display: grid; gap: 10px; }
+    .faq-item { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
+    .faq-q {
+      padding: 18px 22px; font-size: 15px; font-weight: 700; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      user-select: none; transition: color .15s;
+    }
+    .faq-q:hover { color: var(--gold-dark); }
+    .faq-icon { font-size: 20px; color: var(--gold-dark); transition: transform .25s; flex-shrink: 0; }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .2s; font-size: 14px; color: var(--muted); line-height: 1.7; padding: 0 22px; }
+    .faq-item.open .faq-a { max-height: 300px; padding: 0 22px 18px; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+
+    /* ── CTA FINAL ───────────────────────────────────────── */
+    .cta-band {
+      background: var(--ink); color: var(--white);
+      padding: 90px 40px; text-align: center;
+    }
+    .cta-band h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.1; margin-bottom: 16px; }
+    .cta-band p { font-size: 17px; color: #c9cbd0; margin-bottom: 36px; max-width: 560px; margin-left: auto; margin-right: auto; }
+    .cta-band .btn.gold { font-size: 17px; min-height: 54px; padding: 0 36px; border-radius: 9px; }
+    .cta-sub { margin-top: 18px; font-size: 13px; color: #6a6e78; }
+
+    /* ── FOOTER ──────────────────────────────────────────── */
     footer {
-      padding: 24px 36px 40px;
-      color: var(--muted);
-      text-align: center;
-      font-size: 13px;
+      padding: 28px 40px 36px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      background: #111318; color: #4a4e56;
+      text-align: center; font-size: 13px;
     }
+    footer a { color: var(--gold); }
+    footer .footer-links { display: flex; justify-content: center; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
 
-    @media (max-width: 980px) {
-      .hero { min-height: auto; padding-top: 44px; }
-      .hero-stage {
-        position: relative;
-        inset: auto;
-        width: 100%;
-        height: 430px;
-        margin: 30px 0 0;
-        transform: none;
-      }
-      .hero-copy { padding-bottom: 0; }
-      .feature-grid, .pricing, .demo-layout { grid-template-columns: 1fr; }
-      .nav { display: none; }
-      .closing { grid-template-columns: 1fr; }
+    /* ── HELPERS ─────────────────────────────────────────── */
+    .section { padding: 80px 40px; }
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    .sec-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: var(--gold-dark); margin-bottom: 10px; }
+    .sec-title { font-size: clamp(28px, 4vw, 44px); font-weight: 900; line-height: 1.1; margin-bottom: 14px; }
+    .sec-sub { font-size: 16px; color: var(--muted); max-width: 620px; margin-bottom: 48px; line-height: 1.6; }
+    .text-center { text-align: center; }
+    .text-center .sec-sub { margin-left: auto; margin-right: auto; }
+
+    /* reveal */
+    [data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity .55s ease, transform .55s ease; }
+    [data-reveal].visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .feat-grid { grid-template-columns: repeat(2, 1fr); }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 440px; }
     }
-
-    @media (max-width: 620px) {
-      .topbar, .hero, .section { padding-left: 18px; padding-right: 18px; }
-      .topbar { min-height: 62px; }
-      .hero-stats { grid-template-columns: 1fr; }
-      h1 { font-size: 42px; }
-      .hero-copy p { font-size: 17px; }
-      .hero-stage { height: 360px; }
-      .app-visual { min-width: 640px; transform: scale(.72); transform-origin: top left; }
-      .visual-grid { min-height: 455px; }
-      .price-card, .feature { padding: 20px; }
+    @media (max-width: 860px) {
+      .hero-visual { display: none; }
+      .hero { min-height: auto; padding: 54px 24px 44px; }
+      .topnav { display: none; }
+    }
+    @media (max-width: 640px) {
+      .topbar, .section { padding-left: 20px; padding-right: 20px; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .prob-grid, .steps-grid, .test-grid { grid-template-columns: 1fr; }
+      .comp-table { font-size: 12px; }
+      .comp-table td, .comp-table th { padding: 10px 12px; }
+      .cta-band { padding: 64px 20px; }
     }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#">
-      <span class="brand-mark">E</span>
-      <span>Emma Presupuestos Pro</span>
-    </a>
-    <nav class="nav" aria-label="Principal">
-      <a href="#beneficios">Beneficios</a>
-      <a href="#demo">Demo</a>
-      <a href="#precios">Precios</a>
-      <a href="ventas/guion-demo.md">Guion</a>
-    </nav>
-    <a class="btn primary" href="demo.html">Ver demo</a>
-  </header>
 
-  <main>
-    <section class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow">Sistema web para presupuestos de obra</div>
-        <h1>Emma Presupuestos Pro</h1>
-        <p>Cotiza obra en minutos con base de 6,185 conceptos, calculo de indirectos, FASAR, insumos, analisis de precios unitarios, Excel e impresion profesional.</p>
-        <div class="hero-actions">
-          <a class="btn primary" href="demo.html">Abrir demo comercial</a>
-          <a class="btn dark" href="app/presupuesto_emma.html">Abrir app completa</a>
-          <a class="btn" href="ventas/mensajes.md">Copys de venta</a>
+<!-- ═══ TOPBAR ═══════════════════════════════════════════ -->
+<header class="topbar">
+  <a class="brand" href="#">
+    <span class="brand-mark">E</span>
+    <span>Emma Presupuestos Pro</span>
+  </a>
+  <nav class="topnav">
+    <a href="#problema">El problema</a>
+    <a href="#beneficios">Beneficios</a>
+    <a href="#precios">Precios</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <a class="btn gold" href="/login">Acceder →</a>
+</header>
+
+<!-- ═══ HERO ══════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-copy">
+    <div class="eyebrow">✦ Sistema web para presupuestos de obra · México</div>
+    <h1>Presupuesta obra<br>en <em>minutos,</em><br>no en días.</h1>
+    <p class="hero-sub">
+      Base de 6,185 conceptos con precios actualizados. Indirectos, FASAR, análisis de precios unitarios, exportación a Excel y PDF profesional. Todo en tu navegador.
+    </p>
+    <div class="hero-actions">
+      <a class="btn gold xl" href="/login">Empezar ahora →</a>
+      <a class="btn dark lg" href="/demo">Ver demo gratis</a>
+    </div>
+    <p class="hero-note">Sin instalaciones · Funciona en cualquier navegador · Soporte incluido</p>
+    <div class="hero-proof" data-reveal>
+      <div class="proof-chip"><span class="num">6,185</span><span>conceptos incluidos</span></div>
+      <div class="proof-chip"><span class="num">5,457</span><span>insumos de la base</span></div>
+      <div class="proof-chip"><span class="num">2</span><span>dispositivos por licencia</span></div>
+    </div>
+  </div>
+
+  <!-- App mockup -->
+  <div class="hero-visual" aria-hidden="true">
+    <div class="app-frame">
+      <div class="af-head">
+        <div class="af-head-info">
+          <strong>Calculadora de Presupuesto</strong>
+          <span>AHMSA · LIC. JESÚS LÓPEZ · CENTRO COMERCIAL DEL CENTRO · OBREGÓN, SON.</span>
         </div>
-        <div class="hero-stats">
-          <div class="stat"><strong>6,185</strong><span>conceptos depurados</span></div>
-          <div class="stat"><strong>5</strong><span>modulos de trabajo</span></div>
-          <div class="stat"><strong>MXN</strong><span>precios y reportes listos</span></div>
-        </div>
+        <div class="af-head-badge">41 conceptos · $3,244,907.90</div>
       </div>
-
-      <div class="hero-stage" aria-hidden="true">
-        <div class="app-visual">
-          <div class="visual-head">
-            <div class="visual-title"><strong>Calculadora de Presupuesto</strong><span>Proyecto Emma - Base local</span></div>
-            <div class="visual-chip">Total listo para cliente</div>
+      <div class="af-body">
+        <div class="af-side">
+          <div class="af-side-row active">A - PRELIMINARES <span>$1,534</span></div>
+          <div class="af-side-row">C - DEMOLICIONES <span>$7,475</span></div>
+          <div class="af-side-row">D - CIMENTACIÓN <span>$634k</span></div>
+          <div class="af-side-row">F - ESTRUCTURA <span>$1.47M</span></div>
+          <div class="af-side-row">K - ACABADOS <span>$421k</span></div>
+          <div class="af-side-row">M - INST. ELÉCTRICA <span>$62k</span></div>
+          <div class="af-side-row">O - HERRERÍA <span>$103k</span></div>
+          <div class="af-side-row">+ Nueva partida</div>
+        </div>
+        <div class="af-main">
+          <div class="af-toolbar">
+            <span class="af-btn">⚲ Buscar en todas</span>
+            <span class="af-btn g">Calcular presupuesto</span>
+            <span class="af-btn">↓ Excel</span>
+            <span class="af-btn">↓ PDF APU</span>
           </div>
-          <div class="visual-grid">
-            <div class="visual-side">
-              <div class="active">A - Preliminares</div>
-              <div>C - Demoliciones</div>
-              <div>F - Estructura</div>
-              <div>K - Acabados</div>
-              <div>M - Electrica</div>
-              <div>Indirectos</div>
+          <div class="af-row"><span class="cod">01</span><span class="desc">Trazo y nivelación del terreno</span><span class="unit">M2</span><span class="cant">480</span><span class="imp">$4,704</span></div>
+          <div class="af-row"><span class="cod">05</span><span class="desc">Concreto f'c=250 kg/cm² bombeable</span><span class="unit">M3</span><span class="cant">120</span><span class="imp">$88,940</span></div>
+          <div class="af-row"><span class="cod">12</span><span class="desc">Acero de refuerzo fy=4200 kg/cm²</span><span class="unit">KG</span><span class="cant">4,355</span><span class="imp">$132,305</span></div>
+          <div class="af-row"><span class="cod">18</span><span class="desc">Muro tabique rojo 14 cm junteado</span><span class="unit">M2</span><span class="cant">640</span><span class="imp">$58,112</span></div>
+          <div class="af-row"><span class="cod">27</span><span class="desc">Pintura vinílica en muros interiores</span><span class="unit">M2</span><span class="cant">1,200</span><span class="imp">$31,780</span></div>
+          <div class="af-total">
+            <div class="af-total-left">
+              <span>TOTAL GENERAL</span>
+              <strong>$3,244,907.90</strong>
             </div>
-            <div class="visual-main">
-              <div class="visual-toolbar"><span></span><span></span></div>
-              <div class="visual-row"><strong>10301-001</strong><span>Trazo y nivelacion manual</span><b>M2</b><strong>$4,704</strong></div>
-              <div class="visual-row"><strong>10304-023</strong><span>Demolicion de piso de azulejo</span><b>M2</b><strong>$15,362</strong></div>
-              <div class="visual-row"><strong>10401-012</strong><span>Concreto f'c 250 kg/cm2</span><b>M3</b><strong>$88,940</strong></div>
-              <div class="visual-row"><strong>11102-040</strong><span>Pintura vinilica en muros</span><b>M2</b><strong>$31,780</strong></div>
-              <div class="visual-total"><span>Total general</span><strong>$246,890.00</strong></div>
+            <div class="af-total-right">
+              <span>Costo directo: $2,687,159</span>
+              <b>Indirectos: $233,550</b>
+              <b>Utilidad (10%): $294,992</b>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section class="section" id="beneficios">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Lo que se vende no es una plantilla: es velocidad, orden y confianza.</h2>
-          <p>Emma ayuda a que el usuario deje de rehacer presupuestos en Excel y entregue una propuesta clara, con numeros defendibles y salida profesional.</p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature"><div class="icon">01</div><h3>Base de precios</h3><p>Catalogo organizado por partidas con conceptos, unidades, materiales, mano de obra y precio unitario.</p></article>
-          <article class="feature"><div class="icon">02</div><h3>Calculo integral</h3><p>Costo directo, indirectos, utilidad, imprevistos y total general en pesos mexicanos.</p></article>
-          <article class="feature"><div class="icon">03</div><h3>FASAR y mano de obra</h3><p>Actualiza parametros laborales y recalcula mano de obra del presupuesto.</p></article>
-          <article class="feature"><div class="icon">04</div><h3>Insumos acumulados</h3><p>Concentrado de materiales, mano de obra, basicos y equipo para revisar compras y recursos.</p></article>
-          <article class="feature"><div class="icon">05</div><h3>Reportes comerciales</h3><p>Exporta Excel, desglose, analisis de P.U. e impresion para presentar al cliente.</p></article>
-          <article class="feature"><div class="icon">06</div><h3>Respaldo y licencia</h3><p>Flujo listo para demo, acceso con clave y respaldo del trabajo del usuario.</p></article>
-        </div>
+<!-- ═══ PROBLEMA ══════════════════════════════════════════ -->
+<section class="section prob-section" id="problema">
+  <div class="wrap">
+    <div class="sec-label">El problema</div>
+    <h2 class="sec-title">¿Te suena familiar?</h2>
+    <p class="sec-sub">Así pierde tiempo y dinero la mayoría de los profesionales de la construcción en México.</p>
+    <div class="prob-grid" data-reveal>
+      <div class="prob-card">
+        <div class="prob-icon">⏰</div>
+        <h3>Horas en una sola cotización</h3>
+        <p>Abrir Excel, buscar precios en catálogos viejos, recalcular todo a mano. Un presupuesto simple te toma medio día o más.</p>
       </div>
-    </section>
-
-    <section class="section demo-band" id="demo">
-      <div class="wrap demo-layout">
-        <div class="section-head">
-          <h2>Demo de cinco minutos para cerrar interes.</h2>
-          <p>La venta debe mostrar un presupuesto real en movimiento: datos de cliente, busqueda de conceptos, cantidades, calculo, insumos y salida final.</p>
-          <div class="hero-actions">
-            <a class="btn primary" href="demo.html">Practicar demo</a>
-            <a class="btn" href="ventas/guion-demo.md">Abrir guion</a>
-          </div>
-        </div>
-        <div class="steps">
-          <div class="step"><b>1</b><div><strong>Captura la obra</strong><span>Empresa, cliente, ubicacion, logo y fecha.</span></div></div>
-          <div class="step"><b>2</b><div><strong>Agrega conceptos</strong><span>Busca por codigo o descripcion y carga cantidades.</span></div></div>
-          <div class="step"><b>3</b><div><strong>Calcula y justifica</strong><span>Presenta directos, indirectos, utilidad, FASAR e insumos.</span></div></div>
-          <div class="step"><b>4</b><div><strong>Cierra con salida</strong><span>Excel, analisis de P.U. e impresion profesional.</span></div></div>
-        </div>
+      <div class="prob-card">
+        <div class="prob-icon">😰</div>
+        <h3>Precios desactualizados</h3>
+        <p>Los costos de materiales cambian cada mes. ¿Cuándo fue la última vez que actualizaste tu catálogo de insumos?</p>
       </div>
-    </section>
-
-    <section class="section" id="precios">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Paquetes sugeridos para salir a vender ya.</h2>
-          <p>Estos precios son una base inicial. Ajustalos despues de las primeras 10 demos reales.</p>
-        </div>
-        <div class="pricing">
-          <article class="price-card">
-            <h3>Mensual</h3>
-            <div class="price">$399 <small>MXN/mes</small></div>
-            <p>Para usuarios que quieren probar Emma en proyectos reales sin compromiso largo.</p>
-            <ul>
-              <li>Acceso a la app completa</li>
-              <li>Base de conceptos incluida</li>
-              <li>Exportacion e impresion</li>
-              <li>Soporte por WhatsApp</li>
-            </ul>
-            <a class="btn" href="ventas/mensajes.md">Vender mensual</a>
-          </article>
-          <article class="price-card featured">
-            <h3>Anual Pro</h3>
-            <div class="price">$3,499 <small>MXN/ano</small></div>
-            <p>La oferta principal: suficiente valor, menor friccion y mejor ingreso anticipado.</p>
-            <ul>
-              <li>Todo lo del plan mensual</li>
-              <li>Capacitacion inicial de 45 min</li>
-              <li>Plantilla de demo incluida</li>
-              <li>Precio fundador para primeros clientes</li>
-            </ul>
-            <a class="btn primary" href="ventas/mensajes.md">Usar oferta principal</a>
-          </article>
-          <article class="price-card">
-            <h3>Implementacion</h3>
-            <div class="price">$1,500 <small>MXN</small></div>
-            <p>Servicio adicional para configurar al cliente y acelerar la adopcion.</p>
-            <ul>
-              <li>Logo y datos iniciales</li>
-              <li>Capacitacion personalizada</li>
-              <li>Primer presupuesto guiado</li>
-              <li>Ajustes menores de arranque</li>
-            </ul>
-            <a class="btn" href="ventas/checklist-lanzamiento.md">Ver checklist</a>
-          </article>
-        </div>
+      <div class="prob-card">
+        <div class="prob-icon">📉</div>
+        <h3>Presupuestos que no cuadran</h3>
+        <p>Un error en una fórmula de Excel o un concepto olvidado y tu margen de utilidad desaparece en la ejecución.</p>
       </div>
-    </section>
+      <div class="prob-card">
+        <div class="prob-icon">😤</div>
+        <h3>Propuestas que no convencen</h3>
+        <p>Un presupuesto improvisado o mal presentado resta credibilidad y te hace perder contratos frente a la competencia.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <section class="section">
-      <div class="wrap closing">
+<!-- ═══ CÓMO FUNCIONA ══════════════════════════════════════ -->
+<section class="section" id="como-funciona">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label">La solución</div>
+      <h2 class="sec-title">De datos del cliente a presupuesto entregable en minutos</h2>
+      <p class="sec-sub">Sin instalar nada. Solo abre el navegador, ingresa con tu licencia y empieza.</p>
+    </div>
+    <div class="steps-grid" data-reveal>
+      <div class="step-card">
+        <div class="step-num">1</div>
         <div>
-          <h2>Proximo paso: agenda demos, no explicaciones largas.</h2>
-          <p>Usa el mensaje comercial, manda el video/demo y busca que el prospecto vea Emma resolviendo un presupuesto parecido a los suyos.</p>
+          <strong>Captura los datos del proyecto</strong>
+          <span>Empresa, cliente, nombre de obra, ubicación, fecha y responsable. Aparecen en todos tus documentos automáticamente.</span>
         </div>
-        <a class="btn primary" href="ventas/plan-30-prospectos.md">Plan de 30 prospectos</a>
       </div>
-    </section>
-  </main>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div>
+          <strong>Agrega conceptos de la base</strong>
+          <span>Busca por nombre o clave entre 6,185 conceptos. Captura cantidad y Emma calcula materiales, mano de obra y equipo al instante.</span>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div>
+          <strong>Configura indirectos y utilidad</strong>
+          <span>Define CI%, CU% y CF% una sola vez. El sistema los aplica a todos los conceptos y genera el desglose completo.</span>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <div>
+          <strong>Exporta y entrega</strong>
+          <span>Descarga en Excel, genera el PDF con análisis de precios unitarios o imprime el presupuesto completo listo para el cliente.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <footer>
-    Emma Presupuestos Pro - Paquete comercial listo para demo - Mexico
-  </footer>
+<!-- ═══ BENEFICIOS ═════════════════════════════════════════ -->
+<section class="section" id="beneficios" style="background: var(--ink); border-top: 1px solid rgba(255,255,255,.07);">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label" style="color: var(--gold);">Beneficios</div>
+      <h2 class="sec-title" style="color: var(--white);">Todo lo que necesitas, en un solo lugar</h2>
+      <p class="sec-sub" style="color: #9ca0a8;">Diseñado por y para profesionales de la construcción en México.</p>
+    </div>
+    <div class="feat-grid" data-reveal>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">⚡</div>
+        <h3 style="color:#fff;">Presupuestos en minutos</h3>
+        <p style="color:#9ca0a8;">Lo que antes tardabas 4 horas, ahora lo haces en 20 minutos. La base de datos y los cálculos automáticos eliminan el trabajo manual.</p>
+      </article>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">📊</div>
+        <h3 style="color:#fff;">Base de 6,185 conceptos</h3>
+        <p style="color:#9ca0a8;">Catálogo organizado por partidas con conceptos, unidades, insumos y precio unitario. Compatible con CMIC, IMSS y proyectos propios.</p>
+      </article>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">🧾</div>
+        <h3 style="color:#fff;">Análisis de Precio Unitario</h3>
+        <p style="color:#9ca0a8;">Genera el APU completo de cualquier concepto: materiales, mano de obra, herramienta, indirectos y utilidad, con un clic.</p>
+      </article>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">📦</div>
+        <h3 style="color:#fff;">Listado de insumos acumulado</h3>
+        <p style="color:#9ca0a8;">Consolida automáticamente todos los materiales, mano de obra y equipo del presupuesto. Filtra por tipo con un clic.</p>
+      </article>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">⚙️</div>
+        <h3 style="color:#fff;">FASAR y mano de obra</h3>
+        <p style="color:#9ca0a8;">Actualiza los parámetros del Factor de Salario Real y recalcula automáticamente la mano de obra de todo el presupuesto.</p>
+      </article>
+      <article class="feat-card" style="background:#1e2028; border-color:rgba(255,255,255,.08);">
+        <div class="feat-icon">📤</div>
+        <h3 style="color:#fff;">Exportación profesional</h3>
+        <p style="color:#9ca0a8;">Excel, PDF APU, Presupuesto Costo Directo, Desglose de insumos, Indirectos e impresión. 7 formatos listos para entregar.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMPARACIÓN ════════════════════════════════════════ -->
+<section class="section comp-section" id="comparacion">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label">Comparación</div>
+      <h2 class="sec-title">¿Por qué no solo usar Excel?</h2>
+      <p class="sec-sub">Entiende exactamente qué cambia cuando usas una herramienta diseñada para presupuestos de obra.</p>
+    </div>
+    <div data-reveal>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th style="width:40%">Característica</th>
+          <th>Excel manual</th>
+          <th class="hi">✅ Emma Presupuestos Pro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Base de conceptos integrada</td>
+          <td><span class="no">✗ La construyes tú desde cero</span></td>
+          <td class="hi"><span class="ok">✓ 6,185 conceptos listos para usar</span></td>
+        </tr>
+        <tr>
+          <td>Cálculo automático de APU</td>
+          <td><span class="no">✗ Fórmulas manuales en cada celda</span></td>
+          <td class="hi"><span class="ok">✓ Automático al agregar el concepto</span></td>
+        </tr>
+        <tr>
+          <td>Módulo de indirectos CI/CU/CF</td>
+          <td><span class="no">✗ Cálculo manual en cada presupuesto</span></td>
+          <td class="hi"><span class="ok">✓ Módulo dedicado, se aplica solo</span></td>
+        </tr>
+        <tr>
+          <td>Listado de insumos consolidado</td>
+          <td><span class="no">✗ Cruzar tablas manualmente</span></td>
+          <td class="hi"><span class="ok">✓ Se genera automáticamente</span></td>
+        </tr>
+        <tr>
+          <td>FASAR y mano de obra actualizable</td>
+          <td><span class="no">✗ Recalcular cada concepto</span></td>
+          <td class="hi"><span class="ok">✓ Un dato, recalcula todo</span></td>
+        </tr>
+        <tr>
+          <td>Exportación PDF profesional</td>
+          <td><span class="no">✗ Formateo manual, horas de trabajo</span></td>
+          <td class="hi"><span class="ok">✓ Un clic, listo para entregar</span></td>
+        </tr>
+        <tr>
+          <td>Tiempo para el primer presupuesto</td>
+          <td>Días de configuración inicial</td>
+          <td class="hi"><span class="ok">✓ Listo en 5 minutos</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRECIOS ════════════════════════════════════════════ -->
+<section class="section" id="precios">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label">Precios</div>
+      <h2 class="sec-title">Elige el plan que se adapte a ti</h2>
+      <p class="sec-sub">Empieza cuando quieras. Cancela cuando quieras. Sin contratos ni compromisos.</p>
+    </div>
+    <div class="pricing-grid" data-reveal>
+
+      <!-- Mensual -->
+      <article class="price-card">
+        <div class="price-name">Mensual</div>
+        <div class="price-amount"><span class="cur">$</span><strong>399</strong><span class="per">MXN / mes</span></div>
+        <p class="price-desc">Para proyectos puntuales o para probar Emma en tus primeras obras.</p>
+        <ul class="price-list">
+          <li>Acceso completo a la app</li>
+          <li>Base de 6,185 conceptos</li>
+          <li>Exportación Excel e impresión</li>
+          <li>2 dispositivos incluidos</li>
+          <li>Soporte por correo</li>
+        </ul>
+        <a class="btn dark" href="/login">Empezar mensual</a>
+        <p class="price-note">Se renueva cada mes · Cancela en cualquier momento</p>
+      </article>
+
+      <!-- Anual (destacado) -->
+      <article class="price-card featured">
+        <div class="price-badge">🔥 Más popular — Ahorra 30%</div>
+        <div class="price-name">Anual Pro</div>
+        <div class="price-old">$4,788 MXN si pagas mensual</div>
+        <div class="price-amount"><span class="cur">$</span><strong>3,499</strong><span class="per">MXN / año</span></div>
+        <p class="price-desc">La opción principal para contratistas y arquitectos que presupuestan de forma regular.</p>
+        <ul class="price-list">
+          <li>Todo lo del plan mensual</li>
+          <li>Análisis de Precios Unitarios (APU)</li>
+          <li>PDF profesional y desglose APU</li>
+          <li>FASAR y módulo de indirectos</li>
+          <li>Sesión de arranque incluida</li>
+          <li>Soporte prioritario (WhatsApp)</li>
+        </ul>
+        <a class="btn gold" href="/login">Empezar anual — $3,499 MXN</a>
+        <p class="price-note">Pago único anual · Equivale a $292 MXN/mes</p>
+      </article>
+
+      <!-- Implementación -->
+      <article class="price-card">
+        <div class="price-name">Implementación</div>
+        <div class="price-amount"><span class="cur">$</span><strong>1,500</strong><span class="per">MXN · pago único</span></div>
+        <p class="price-desc">Servicio adicional para arrancar rápido con tu base de precios y flujos propios.</p>
+        <ul class="price-list">
+          <li>Configuración inicial completa</li>
+          <li>Logo y datos de empresa</li>
+          <li>Primer presupuesto guiado</li>
+          <li>Capacitación personalizada 1 hr</li>
+          <li>Ajustes de base de precios</li>
+        </ul>
+        <a class="btn" href="mailto:soporte@emma-presupuestos.com">Solicitar implementación</a>
+        <p class="price-note">Se adquiere junto con cualquier plan</p>
+      </article>
+
+    </div>
+
+    <div class="garantia" data-reveal>
+      <div class="garantia-icon">🛡️</div>
+      <div>
+        <strong>Garantía de 30 días</strong>
+        <span>Si en los primeros 30 días Emma no cumple lo prometido, te devolvemos el 100% de tu pago. Sin preguntas, sin burocracia.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIOS ════════════════════════════════════════ -->
+<section class="section test-section" id="testimonios">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label">Testimonios</div>
+      <h2 class="sec-title">Lo que dicen quienes ya usan Emma</h2>
+      <p class="sec-sub">Profesionales reales de la construcción que cambiaron su manera de presupuestar.</p>
+    </div>
+    <div class="test-grid" data-reveal>
+      <div class="test-card">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-text">"Lo que me tomaba un día entero en Excel ahora lo hago en 30 minutos. La base de datos está completa, los APUs se generan solos y el PDF queda perfecto para presentar."</p>
+        <div class="test-author">
+          <div class="test-avatar">RC</div>
+          <div>
+            <div class="test-name">Roberto C.</div>
+            <div class="test-role">Contratista de obra civil · CDMX</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-text">"Soy arquitecta y antes presentaba propuestas en Excel improvisado. Desde que uso Emma, mis clientes ven algo profesional y ya gané dos contratos que antes hubiera perdido."</p>
+        <div class="test-author">
+          <div class="test-avatar">RG</div>
+          <div>
+            <div class="test-name">Roxana G.</div>
+            <div class="test-role">Arquitecta independiente · Obregón, Son.</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-text">"El módulo de indirectos es lo que más me gustó. Configuro mis márgenes una vez y el sistema los aplica a todo. Sin errores, sin recalcular manualmente cada presupuesto."</p>
+        <div class="test-author">
+          <div class="test-avatar">LH</div>
+          <div>
+            <div class="test-name">Luis H.</div>
+            <div class="test-role">Residente de obra · Monterrey, N.L.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ════════════════════════════════════════════════ -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="text-center">
+      <div class="sec-label">Preguntas frecuentes</div>
+      <h2 class="sec-title">Todo lo que necesitas saber</h2>
+      <p class="sec-sub">¿Tienes una duda que no está aquí? Escríbenos por WhatsApp y te respondemos en menos de 24 horas.</p>
+    </div>
+    <div class="faq-list" data-reveal>
+      <div class="faq-item">
+        <div class="faq-q">¿Cómo obtengo acceso después de pagar? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Recibes un correo con tu clave de licencia en menos de 5 minutos. Ingresas con tu correo y esa clave en emma-presupuestos.com y empiezas de inmediato. Sin descargas ni instalaciones.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Necesito instalar algo o necesito internet? <span class="faq-icon">+</span></div>
+        <div class="faq-a">No necesitas instalar nada. Emma es una aplicación web que funciona desde tu navegador (Chrome, Edge, Firefox o Safari). Sí requiere conexión a internet para acceder, pero una vez dentro, el trabajo es rápido y fluido.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿En cuántas computadoras puedo usarlo? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Tu licencia permite hasta 2 dispositivos activos simultáneamente — por ejemplo, tu computadora de escritorio y tu laptop. Si necesitas liberar un dispositivo, lo haces desde tu panel de cuenta o contactando a soporte.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Puedo actualizar los precios de materiales e insumos? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Sí. Puedes editar el precio de cualquier insumo directamente desde el editor de materiales. También puedes agregar conceptos nuevos que no estén en la base de datos para adaptarla a tu región o proveedores.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Los precios de la base de datos están actualizados? <span class="faq-icon">+</span></div>
+        <div class="faq-a">La base de datos se actualiza periódicamente con precios de referencia de la zona noroeste de México (Sonora). Puedes ajustar los precios individualmente para cualquier región o proveedor.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Puedo guardar y continuar un presupuesto después? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Sí. Puedes guardar un respaldo de tu presupuesto como archivo .emma y cargarlo en cualquier momento. También puedes descargar el presupuesto en Excel para respaldo adicional.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Se puede cancelar el plan mensual en cualquier momento? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Sí. Puedes cancelar cuando quieras contactando a soporte. El acceso se mantiene hasta el final del periodo pagado. No hay penalizaciones ni contratos a largo plazo.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">¿Puedo solicitar factura? <span class="faq-icon">+</span></div>
+        <div class="faq-a">Sí, emitimos CFDI para personas físicas y morales. Escríbenos tus datos fiscales después de realizar el pago y lo gestionamos en 24 horas hábiles.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ══════════════════════════════════════════ -->
+<section class="cta-band">
+  <h2>¿Listo para presupuestar<br>como un profesional?</h2>
+  <p>Únete a los contratistas y arquitectos que ya ahorran horas cada semana con Emma Presupuestos Pro.</p>
+  <a class="btn gold" href="/login">Empezar ahora →</a>
+  <p class="cta-sub">Garantía de 30 días · Soporte incluido · Sin compromisos</p>
+</section>
+
+<!-- ═══ FOOTER ═════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-links">
+    <a href="/demo">Ver demo</a>
+    <a href="/login">Acceder</a>
+    <a href="terminos_licencia.html">Términos de licencia</a>
+    <a href="mailto:soporte@emma-presupuestos.com">soporte@emma-presupuestos.com</a>
+    <a href="https://wa.me/529841970948">WhatsApp</a>
+  </div>
+  <p><strong style="color:#c79a43">Emma Presupuestos Pro</strong> · Software de presupuestos para construcción · México</p>
+  <p style="margin-top:8px">© 2026 Emma Presupuestos Pro. Todos los derechos reservados.</p>
+</footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.closest('.faq-item');
+      const open = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!open) item.classList.add('open');
+    });
+  });
+
+  // Scroll reveal
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
+</script>
 </body>
 </html>
