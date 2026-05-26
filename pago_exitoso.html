@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>¡Pago exitoso! — Emma Presupuestos Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink:#17191f; --gold:#c79a43; --paper:#fbfaf6; --muted:#626978; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .box { max-width: 500px; width: 100%; text-align: center; }
+    .icon { font-size: 72px; margin-bottom: 20px; }
+    h1 { font-size: 30px; font-weight: 900; margin-bottom: 12px; }
+    p { color: var(--muted); line-height: 1.7; margin-bottom: 14px; font-size: 15px; }
+    .highlight {
+      background: #fff;
+      border: 2px solid var(--gold);
+      border-radius: 10px;
+      padding: 22px 24px;
+      margin: 24px 0;
+      text-align: left;
+    }
+    .highlight-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: var(--ink);
+    }
+    .highlight-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #444;
+      line-height: 1.5;
+    }
+    .step-num {
+      background: var(--gold);
+      color: #fff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--gold);
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+      margin-top: 8px;
+    }
+    .help {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 20px;
+      line-height: 1.8;
+    }
+    .help a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">✅</div>
+    <h1>¡Pago recibido!</h1>
+    <p>Tu pago fue procesado correctamente por MercadoPago. En instantes recibirás tu licencia.</p>
+
+    <div class="highlight">
+      <div class="highlight-title">Próximos pasos:</div>
+      <div class="highlight-step">
+        <div class="step-num">1</div>
+        <span>Revisa tu correo electrónico (incluyendo la carpeta de spam / promociones).</span>
+      </div>
+      <div class="highlight-step">
+        <div class="step-num">2</div>
+        <span>Encontrarás un correo de <strong>licencias@emma-presupuestos.com</strong> con tu clave de licencia.</span>
+      </div>
+      <div class="highlight-step">
+        <div class="step-num">3</div>
+        <span>Entra a Emma con tu correo y la clave recibida.</span>
+      </div>
+    </div>
+
+    <a class="btn" href="/login">Ir al login →</a>
+
+    <p class="help">
+      ¿No llegó el correo en 10 minutos?<br>
+      Escríbenos a <a href="mailto:soporte@emma-presupuestos.com">soporte@emma-presupuestos.com</a>
+      o por WhatsApp al <a href="https://wa.me/529841970948">+52 984 197 0948</a>.
+    </p>
+  </div>
+</body>
+</html>

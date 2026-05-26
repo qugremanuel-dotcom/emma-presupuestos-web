@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activar licencia — Emma Presupuestos Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #17191f; --gold: #c79a43; --gold-dark: #8b6424;
+      --paper: #fbfaf6; --muted: #626978; --green: #186b55;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      background: var(--ink);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand {
+      color: var(--gold);
+      font-size: 18px;
+      font-weight: 900;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .brand span { color: #fff; }
+
+    /* Main */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+    .box {
+      max-width: 460px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+
+    /* Plan selector */
+    .plan-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .plan-opt {
+      border: 2px solid #d4cfc4;
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .plan-opt.active {
+      border-color: var(--gold);
+      background: #fffbf3;
+    }
+    .plan-opt-badge {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .plan-opt-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    .plan-opt-price { font-size: 22px; font-weight: 900; color: var(--gold); }
+    .plan-opt-per { font-size: 11px; color: var(--muted); }
+
+    /* Form */
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 5px;
+      color: var(--ink);
+    }
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #d4cfc4;
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: Inter, sans-serif;
+      background: #fff;
+      margin-bottom: 14px;
+      transition: border-color .2s;
+      color: var(--ink);
+    }
+    input:focus { outline: none; border-color: var(--gold); }
+
+    .btn-pay {
+      width: 100%;
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s;
+      margin-top: 4px;
+      font-family: Inter, sans-serif;
+      letter-spacing: 0.3px;
+    }
+    .btn-pay:hover { background: var(--gold-dark); }
+    .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+
+    .err {
+      color: #c0392b;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+      padding: 10px 14px;
+      background: #fdf0ee;
+      border-radius: 6px;
+    }
+
+    /* Garantía */
+    .guarantee {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #f0f7f4;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 16px;
+    }
+    .guarantee-icon { font-size: 18px; flex-shrink: 0; }
+    .guarantee-text { font-size: 12px; color: var(--green); line-height: 1.5; }
+
+    .note {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 14px;
+      line-height: 1.7;
+    }
+    .note a { color: var(--muted); }
+
+    .mp-logo {
+      text-align: center;
+      margin-top: 20px;
+      opacity: .45;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e8e4d9;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/"><span>Emma </span>Presupuestos Pro</a>
+  </header>
+
+  <main>
+    <div class="box">
+      <h1>Activa tu licencia</h1>
+      <p class="subtitle">Selecciona tu plan y completa tus datos para continuar al pago</p>
+
+      <!-- Selector de plan -->
+      <div class="plan-selector" id="plan-selector">
+        <div class="plan-opt" id="opt-mensual" onclick="selPlan('mensual')">
+          <div class="plan-opt-name">Mensual</div>
+          <div class="plan-opt-price">$399</div>
+          <div class="plan-opt-per">MXN / mes</div>
+        </div>
+        <div class="plan-opt active" id="opt-anual" onclick="selPlan('anual')">
+          <div class="plan-opt-badge">🔥 Más popular</div>
+          <div class="plan-opt-name">Anual Pro</div>
+          <div class="plan-opt-price">$3,499</div>
+          <div class="plan-opt-per">Equiv. $292 MXN/mes</div>
+        </div>
+      </div>
+
+      <form id="form" onsubmit="pagar(event)">
+        <div>
+          <label for="name">Nombre completo</label>
+          <input type="text" id="name" placeholder="Ej. Arq. Juan López Cabello" required autocomplete="name">
+        </div>
+        <div>
+          <label for="email">Correo electrónico</label>
+          <input type="email" id="email" placeholder="Ej. juan@constructora.com" required autocomplete="email">
+          <p style="font-size:11px;color:var(--muted);margin-top:-10px;margin-bottom:14px;">Aquí recibirás tu clave de licencia</p>
+        </div>
+        <button class="btn-pay" id="btn" type="submit">Pagar $3,499 MXN con MercadoPago →</button>
+        <div class="err" id="err"></div>
+      </form>
+
+      <div class="guarantee">
+        <div class="guarantee-icon">🛡️</div>
+        <div class="guarantee-text">
+          <strong>Garantía 30 días</strong> — Si Emma no cumple lo prometido, te devolvemos el 100% de tu pago. Sin preguntas.
+        </div>
+      </div>
+
+      <p class="note">
+        Al continuar aceptas los <a href="/terminos_licencia.html">Términos de licencia</a>.<br>
+        Tu clave de acceso llega por correo inmediatamente después del pago.
+      </p>
+
+      <hr class="divider">
+
+      <div class="mp-logo">PAGO SEGURO · MERCADOPAGO</div>
+    </div>
+  </main>
+
+  <script>
+    const planes = {
+      mensual: { label: "Mensual",    price: "$399",   mxn: "399",    btn: "Pagar $399 MXN con MercadoPago →" },
+      anual:   { label: "Anual Pro",  price: "$3,499", mxn: "3,499",  btn: "Pagar $3,499 MXN con MercadoPago →" }
+    };
+    let planActual = "anual";
+
+    function selPlan(p) {
+      planActual = p;
+      document.getElementById("opt-mensual").classList.toggle("active", p === "mensual");
+      document.getElementById("opt-anual").classList.toggle("active", p === "anual");
+      const d = planes[p];
+      document.getElementById("btn").textContent = d.btn;
+      document.title = `Pagar ${d.label} — Emma Presupuestos Pro`;
+    }
+
+    // Pre-seleccionar desde query string
+    const qs = new URLSearchParams(location.search).get("plan");
+    if (qs === "mensual") selPlan("mensual");
+
+    async function pagar(e) {
+      e.preventDefault();
+      const btn = document.getElementById("btn");
+      const err = document.getElementById("err");
+      const name  = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+
+      btn.disabled = true;
+      btn.textContent = "Redirigiendo a MercadoPago…";
+      err.style.display = "none";
+
+      try {
+        const r = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, plan: planActual })
+        });
+        const data = await r.json();
+        if (data.init_point) {
+          window.location.href = data.init_point;
+        } else {
+          err.textContent = data.error || "Error al procesar el pago. Intenta de nuevo.";
+          err.style.display = "block";
+          btn.disabled = false;
+          btn.textContent = planes[planActual].btn;
+        }
+      } catch {
+        err.textContent = "Error de conexión. Verifica tu internet e intenta de nuevo.";
+        err.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = planes[planActual].btn;
+      }
+    }
+  </script>
+</body>
+</html>

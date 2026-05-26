@@ -3,10 +3,34 @@ const http   = require("http");
 const fs     = require("fs");
 const path   = require("path");
 const crypto = require("crypto");
+const https  = require("https");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const root         = __dirname;
 const port         = process.env.PORT || 8080;
+
+// ─── Catálogo de conceptos e insumos ─────────────────────────────────────────
+let DATA_CONCEPTOS = null;
+let DATA_INSUMOS   = null;
+(function loadData() {
+  const cFile = path.join(root, "data", "conceptos.json");
+  const iFile = path.join(root, "data", "insumos.json");
+  try {
+    if (fs.existsSync(cFile)) {
+      DATA_CONCEPTOS = JSON.parse(fs.readFileSync(cFile, "utf8"));
+      const nP = Object.keys(DATA_CONCEPTOS).length;
+      const nC = Object.values(DATA_CONCEPTOS).reduce((s, a) => s + a.length, 0);
+      console.log(`[Emma] Conceptos: ${nP} partidas · ${nC} conceptos`);
+    } else { console.warn("[Emma] data/conceptos.json no encontrado — ejecuta scripts/extract-db.js"); }
+  } catch (e) { console.error("[Emma] Error cargando conceptos:", e.message); }
+  try {
+    if (fs.existsSync(iFile)) {
+      DATA_INSUMOS = JSON.parse(fs.readFileSync(iFile, "utf8"));
+      const nD = Object.keys(DATA_INSUMOS.dict || {}).length;
+      console.log(`[Emma] Insumos: ${nD} entradas en dict`);
+    } else { console.warn("[Emma] data/insumos.json no encontrado — ejecuta scripts/extract-db.js"); }
+  } catch (e) { console.error("[Emma] Error cargando insumos:", e.message); }
+})();
 const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 const COOKIE_NAME  = "emma_session";
 const DEVICE_COOKIE = "emma_device";
@@ -21,6 +45,26 @@ try {
   if (process.env.USERS_DB) USERS = JSON.parse(process.env.USERS_DB);
 } catch (e) {
   console.error("[Emma] USERS_DB parse error:", e.message);
+}
+
+// ─── Extra users (creados vía pago, persisten en /tmp) ───────────────────────
+const EXTRA_USERS_FILE = "/tmp/emma_users_extra.json";
+let extraUsers = [];
+try {
+  if (fs.existsSync(EXTRA_USERS_FILE))
+    extraUsers = JSON.parse(fs.readFileSync(EXTRA_USERS_FILE, "utf8"));
+} catch {}
+for (const u of extraUsers) {
+  if (!USERS.some(e => e.email.toLowerCase() === u.email.toLowerCase())) USERS.push(u);
+}
+function saveExtraUsers() {
+  try { fs.writeFileSync(EXTRA_USERS_FILE, JSON.stringify(extraUsers), "utf8"); } catch {}
+}
+function addPaidUser(user) {
+  const em = user.email.toLowerCase();
+  const nu = { ...user, email: em };
+  if (!USERS.some(u => u.email.toLowerCase() === em)) USERS.push(nu);
+  if (!extraUsers.some(u => u.email.toLowerCase() === em)) { extraUsers.push(nu); saveExtraUsers(); }
 }
 
 // ─── FNV-1a 32-bit — idéntico al _h() del HTML ───────────────────────────────
@@ -171,6 +215,102 @@ function sendJSON(res, status, obj, extraHeaders = {}) {
     ...extraHeaders
   });
   res.end(body);
+}
+
+// ─── HTTP helper para llamadas externas ──────────────────────────────────────
+function httpsReq(method, hostname, path, headers, body) {
+  return new Promise((resolve, reject) => {
+    const bodyBuf = body ? Buffer.from(body, "utf8") : null;
+    const opts = {
+      hostname, path, method,
+      headers: bodyBuf
+        ? { ...headers, "Content-Length": bodyBuf.length }
+        : { ...headers }
+    };
+    const req = https.request(opts, res => {
+      let data = "";
+      res.on("data", c => data += c);
+      res.on("end", () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on("error", reject);
+    if (bodyBuf) req.write(bodyBuf);
+    req.end();
+  });
+}
+
+// ─── Planes disponibles ───────────────────────────────────────────────────────
+const PLANES = {
+  mensual: { title: "Emma Presupuestos Pro — Plan Mensual", price: 399,  label: "Plan Mensual",    yearOffset: 0 },
+  anual:   { title: "Emma Presupuestos Pro — Plan Anual Pro", price: 3499, label: "Plan Anual Pro", yearOffset: 1 }
+};
+
+// ─── Generador de licencia ────────────────────────────────────────────────────
+function generarLicencia(planId) {
+  const code4 = crypto.randomBytes(2).toString("hex").toUpperCase();
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + ((PLANES[planId] || PLANES.mensual).yearOffset));
+  const yy = String(d.getFullYear() % 100).padStart(2, "0");
+  const hash = (fnv(code4 + yy + _LS) & 0xFFFFFF).toString(16).toUpperCase().padStart(6, "0");
+  return `EMMA-${code4}-${yy}-${hash}`;
+}
+
+// ─── Envío de email via Resend ────────────────────────────────────────────────
+async function enviarEmail(to, subject, html) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.warn("[Emma] RESEND_API_KEY no configurada — email no enviado"); return; }
+  const from = process.env.FROM_EMAIL || "Emma Presupuestos <licencias@emma-presupuestos.com>";
+  try {
+    const r = await httpsReq("POST", "api.resend.com", "/emails",
+      { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      JSON.stringify({ from, to: [to], subject, html }));
+    console.log(`[Emma] Email a ${to}: status ${r.status}`);
+  } catch (e) { console.error("[Emma] Error email:", e.message); }
+}
+
+async function enviarCredenciales(email, name, key, planId) {
+  const planLabel = (PLANES[planId] || PLANES.mensual).label;
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#17191f;">
+<div style="background:#17191f;padding:32px;text-align:center;">
+  <h1 style="color:#c79a43;margin:0;font-size:28px;">Emma Presupuestos Pro</h1>
+  <p style="color:#9ca0a8;margin:8px 0 0;">Tu licencia está activada</p>
+</div>
+<div style="padding:32px;background:#fbfaf6;">
+  <p>Hola <strong>${name}</strong>,</p>
+  <p style="margin:12px 0;">¡Tu pago fue procesado correctamente! Ya puedes entrar con estas credenciales:</p>
+  <div style="background:#fff;border:2px solid #c79a43;border-radius:8px;padding:24px;margin:24px 0;text-align:center;">
+    <p style="margin:0 0 4px;color:#626978;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Correo</p>
+    <p style="font-size:17px;font-weight:bold;margin:0 0 20px;">${email}</p>
+    <p style="margin:0 0 4px;color:#626978;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Clave de licencia</p>
+    <p style="font-size:22px;font-weight:bold;color:#c79a43;font-family:monospace;letter-spacing:3px;margin:0;">${key}</p>
+  </div>
+  <p style="text-align:center;">
+    <a href="https://emma-presupuestos.com/login" style="background:#c79a43;color:#fff;text-decoration:none;padding:14px 32px;border-radius:999px;font-weight:bold;display:inline-block;">Entrar a Emma →</a>
+  </p>
+  <p style="margin-top:24px;"><strong>${planLabel}</strong> — Guarda esta clave, la necesitarás al iniciar sesión desde un dispositivo nuevo.</p>
+  <hr style="border:none;border-top:1px solid #e8e4d9;margin:24px 0;">
+  <p style="color:#626978;font-size:13px;">¿Tienes dudas? <a href="mailto:soporte@emma-presupuestos.com">soporte@emma-presupuestos.com</a> o WhatsApp <a href="https://wa.me/529841970948">+52 984 197 0948</a>.</p>
+</div></body></html>`;
+  await enviarEmail(email, "✅ Tu licencia Emma Presupuestos Pro — Credenciales de acceso", html);
+}
+
+// ─── Actualizar USERS_DB en Railway (best-effort) ─────────────────────────────
+async function actualizarRailwayUsers() {
+  const token = process.env.RAILWAY_TOKEN;
+  const svcId = process.env.RAILWAY_SERVICE_ID;
+  const envId = process.env.RAILWAY_ENVIRONMENT_ID;
+  const prjId = process.env.RAILWAY_PROJECT_ID;
+  if (!token || !svcId || !envId || !prjId) return;
+  const val   = JSON.stringify(USERS);
+  const query = `mutation{variableUpsert(input:{serviceId:${JSON.stringify(svcId)},environmentId:${JSON.stringify(envId)},projectId:${JSON.stringify(prjId)},name:"USERS_DB",value:${JSON.stringify(val)}})}`;
+  try {
+    const r = await httpsReq("POST", "backboard.railway.app", "/graphql/v2",
+      { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      JSON.stringify({ query }));
+    console.log(`[Emma] Railway USERS_DB actualizado: ${r.status}`);
+  } catch (e) { console.error("[Emma] Railway update error:", e.message); }
 }
 
 // ─── Servidor ─────────────────────────────────────────────────────────────────
@@ -329,6 +469,161 @@ const server = http.createServer(async (req, res) => {
       summary[em] = devs.length;
     }
     return sendJSON(res, 200, summary);
+  }
+
+  // ── GET /api/ping ─────────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/ping") {
+    if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+    return sendJSON(res, 200, { ok: true, client: session.name });
+  }
+
+  // ── GET /api/conceptos ────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/conceptos") {
+    if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+    if (!DATA_CONCEPTOS) return sendJSON(res, 503, { error: "Catálogo no disponible." });
+    return sendJSON(res, 200, { ok: true, data: DATA_CONCEPTOS });
+  }
+
+  // ── GET /api/insumos ──────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/insumos") {
+    if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+    if (!DATA_INSUMOS) return sendJSON(res, 503, { error: "Insumos no disponibles." });
+    return sendJSON(res, 200, { ok: true, data: DATA_INSUMOS });
+  }
+
+  // ── GET /pagar ─────────────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/pagar") {
+    return sendFile(res, path.join(root, "checkout.html"));
+  }
+
+  // ── GET /pago-exitoso ──────────────────────────────────────────────────────
+  if (method === "GET" && pathname === "/pago-exitoso") {
+    return sendFile(res, path.join(root, "pago_exitoso.html"));
+  }
+
+  // ── GET /pago-fallido | /pago-pendiente ────────────────────────────────────
+  if (method === "GET" && (pathname === "/pago-fallido" || pathname === "/pago-pendiente")) {
+    return sendFile(res, path.join(root, "pago_fallido.html"));
+  }
+
+  // ── POST /api/checkout — crea preferencia en MercadoPago ──────────────────
+  if (method === "POST" && pathname === "/api/checkout") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const { email, name, plan } = body;
+    if (!email || !name || !plan) return sendJSON(res, 400, { error: "email, name y plan requeridos." });
+    if (!PLANES[plan]) return sendJSON(res, 400, { error: "Plan inválido." });
+
+    const mpToken = process.env.MP_ACCESS_TOKEN;
+    if (!mpToken) {
+      return sendJSON(res, 503, { error: "Pagos no configurados. Contáctanos por WhatsApp al +52 984 197 0948." });
+    }
+
+    const siteUrl = (process.env.SITE_URL || "https://emma-presupuestos.com").replace(/\/$/, "");
+    const planData = PLANES[plan];
+    const extRef = `${Date.now()}|${plan}|${email}|${encodeURIComponent(name)}`;
+
+    const pref = {
+      items: [{ title: planData.title, quantity: 1, unit_price: planData.price, currency_id: "MXN" }],
+      payer: { email, name },
+      external_reference: extRef,
+      back_urls: {
+        success: `${siteUrl}/pago-exitoso`,
+        failure: `${siteUrl}/pago-fallido`,
+        pending: `${siteUrl}/pago-pendiente`
+      },
+      auto_return: "approved",
+      notification_url: `${siteUrl}/api/mp-webhook`
+    };
+
+    try {
+      const r = await httpsReq("POST", "api.mercadopago.com", "/checkout/preferences",
+        { "Authorization": `Bearer ${mpToken}`, "Content-Type": "application/json" },
+        JSON.stringify(pref));
+      if (r.status === 201 && r.body?.init_point) {
+        return sendJSON(res, 200, { init_point: r.body.init_point });
+      }
+      console.error("[Emma] MP preference error:", r.status, JSON.stringify(r.body));
+      return sendJSON(res, 502, { error: "Error al crear el pago. Intenta de nuevo." });
+    } catch (e) {
+      console.error("[Emma] MP exception:", e.message);
+      return sendJSON(res, 502, { error: "Error de conexión con el proveedor de pago." });
+    }
+  }
+
+  // ── POST /api/mp-webhook — notificación de pago de MercadoPago ─────────────
+  if (method === "POST" && pathname === "/api/mp-webhook") {
+    // Siempre responder 200 rápido a MP para que no reintente
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+
+    const paymentId = body?.data?.id;
+    if (!paymentId || body?.type !== "payment") return;
+
+    const mpToken = process.env.MP_ACCESS_TOKEN;
+    if (!mpToken) return;
+
+    (async () => {
+      try {
+        const r = await httpsReq("GET", "api.mercadopago.com", `/v1/payments/${paymentId}`,
+          { "Authorization": `Bearer ${mpToken}` }, null);
+
+        if (r.status !== 200 || r.body?.status !== "approved") {
+          console.log(`[Emma] Pago ${paymentId}: ${r.body?.status || "error"}`);
+          return;
+        }
+
+        const extRef = r.body?.external_reference || "";
+        const parts = extRef.split("|");
+        if (parts.length < 4) { console.error("[Emma] extRef inválido:", extRef); return; }
+        const [, planId, rawEmail, rawName] = parts;
+        const email = rawEmail.toLowerCase().trim();
+        const name  = decodeURIComponent(rawName).trim();
+
+        if (!PLANES[planId]) { console.error("[Emma] Plan desconocido:", planId); return; }
+
+        // Si ya tiene licencia, solo reenviar credenciales
+        const existe = USERS.find(u => u.email.toLowerCase() === email && u.active !== false);
+        if (existe) {
+          console.log(`[Emma] Usuario ${email} ya existe — reenviando credenciales`);
+          await enviarCredenciales(email, name || existe.name, existe.key, planId);
+          return;
+        }
+
+        const key = generarLicencia(planId);
+        const newUser = { email, key, name, active: true };
+        addPaidUser(newUser);
+
+        // Actualizar Railway (async, no bloquea)
+        actualizarRailwayUsers().catch(() => {});
+
+        // Email al usuario
+        await enviarCredenciales(email, name, key, planId);
+
+        // Notificar al admin
+        const adminMail = process.env.ADMIN_EMAIL || "admin@emma-presupuestos.com";
+        await enviarEmail(adminMail,
+          `[Emma] Nuevo cliente: ${name} — ${(PLANES[planId]).label}`,
+          `<p><b>Nuevo pago confirmado en MercadoPago</b></p>
+           <ul>
+             <li><b>Nombre:</b> ${name}</li>
+             <li><b>Email:</b> ${email}</li>
+             <li><b>Plan:</b> ${PLANES[planId].label}</li>
+             <li><b>Clave generada:</b> <code>${key}</code></li>
+             <li><b>Pago MP ID:</b> ${paymentId}</li>
+           </ul>
+           <p>El usuario ya puede acceder. Agrega la entrada a emma_licencias.json para persistencia.</p>`
+        );
+
+        console.log(`[Emma] ✅ Nuevo usuario activado: ${email} plan=${planId} key=${key}`);
+      } catch (e) {
+        console.error("[Emma] Error procesando webhook MP:", e.message);
+      }
+    })();
+    return;
   }
 
   // ── 404 ───────────────────────────────────────────────────────────────────

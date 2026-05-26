@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pago cancelado — Emma Presupuestos Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink:#17191f; --gold:#c79a43; --paper:#fbfaf6; --muted:#626978; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .box { max-width: 460px; width: 100%; text-align: center; }
+    .icon { font-size: 64px; margin-bottom: 20px; }
+    h1 { font-size: 28px; font-weight: 900; margin-bottom: 10px; }
+    p { color: var(--muted); line-height: 1.7; margin-bottom: 12px; font-size: 15px; }
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+    .btn {
+      display: inline-block;
+      background: var(--gold);
+      color: #fff;
+      text-decoration: none;
+      padding: 13px 28px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .btn-out {
+      display: inline-block;
+      border: 2px solid #ccc;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 11px 26px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .help { font-size: 12px; color: var(--muted); margin-top: 24px; line-height: 1.8; }
+    .help a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">↩️</div>
+    <h1>Pago cancelado</h1>
+    <p>No se realizó ningún cargo. Puedes intentarlo de nuevo cuando quieras.</p>
+    <p>Si tuviste un problema técnico con el pago, escríbenos y te ayudamos.</p>
+
+    <div class="actions">
+      <a class="btn" href="/pagar">Intentar de nuevo →</a>
+      <a class="btn-out" href="/">Volver al inicio</a>
+    </div>
+
+    <p class="help">
+      ¿Necesitas ayuda? <a href="https://wa.me/529841970948">WhatsApp +52 984 197 0948</a><br>
+      o escríbenos a <a href="mailto:soporte@emma-presupuestos.com">soporte@emma-presupuestos.com</a>
+    </p>
+  </div>
+</body>
+</html>
