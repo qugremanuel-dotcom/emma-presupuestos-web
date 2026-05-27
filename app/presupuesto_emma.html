@@ -5140,7 +5140,8 @@ function exportAPUDirect() {
   calcularPresupuesto(false);
   const hasRows = PARTIDAS.some(([l]) => STATE.rows[l].length > 0);
   if (!hasRows) { toast('No hay conceptos para exportar'); return; }
-  _doExportAnalisisPU('cascada', STATE.ci.porcTotal || 0, STATE.ci.utilNetPorc || 0, STATE.ci.cfPorc || 0);
+  const fmt = STATE.ci.apuFormat || 'cascada';
+  _doExportAnalisisPU(fmt, STATE.ci.porcTotal || 0, STATE.ci.utilNetPorc || 0, STATE.ci.cfPorc || 0);
 }
 
 function exportConceptBreakdownsPdf() {
@@ -5380,7 +5381,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
       const conceptNo = allLet[letter] + idx;
       const insumos   = getComparableInsumos(r);
       const cd        = Number(r.p)   || 0;
-      const matAmt    = Number(r.mat) || 0;
+      const matAmt    = Number(r.matIVA ?? r.mat) || 0;  // porción M para IVA (mat directos + M de básicos)
       const qtyVal    = r.qty || 0;
       // Calcular PU con indirectos (misma lógica que buildPieDeIndirectos)
       const _ci   = cd * (Number(ciPorc) || 0) / 100;
