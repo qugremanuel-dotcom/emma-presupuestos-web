@@ -567,6 +567,57 @@ table.insumos th.c { text-align: center; }
   font-weight: 800;
   white-space: nowrap;
 }
+/* ── Básicos de obra desglose ─────────────────────── */
+.ins-basico-detail td {
+  background: #EFF7F3;
+  padding: 0 12px 11px !important;
+}
+.ins-basico-box {
+  border-left: 2px solid #1D9E75;
+  background: white;
+  margin-left: 42px;
+  padding: 8px 10px 10px;
+}
+.ins-basico-title {
+  color: #167A5B;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ins-basico-mat-tag {
+  background: #E0F5EC;
+  border: 1px solid #1D9E75;
+  color: #167A5B;
+  padding: 1px 7px;
+  font-size: 10px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.ins-basico-table { width: 100%; border-collapse: collapse; }
+.ins-basico-table th {
+  color: var(--ink-4); font-size: 9px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; text-align: left;
+  border-bottom: 1px solid var(--line-soft); padding: 4px 6px;
+}
+.ins-basico-table td {
+  background: white !important; border-bottom: 1px dotted var(--line-soft);
+  color: var(--ink-2); font-size: 11px; padding: 4px 6px !important;
+}
+.ins-basico-table .num { text-align: right; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.ins-basico-tipo {
+  display: inline-block; border-radius: 3px; padding: 1px 5px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.1em; font-family: ui-monospace, monospace;
+  background: #EEE; color: #555;
+}
+.ins-basico-tipo-m  { background: #E3F0FF; color: #1565C0; }
+.ins-basico-tipo-mo { background: #F3E8FF; color: #6A1B9A; }
+.ins-basico-tipo-e  { background: #FFF3E0; color: #E65100; }
 .ins-unit { font-size: 10px; color: var(--ink-4); text-transform: uppercase; text-align: center; }
 .ins-cell-input {
   font-family: ui-monospace, monospace; font-size: 12px;
@@ -2827,15 +2878,17 @@ function recalcRowFromCurrentInsumos(r) {
   if (r.libre && (!r.insumos || !r.insumos.length)) return;
   if (!r.insumos) loadInsumosForRow(r);
   recalcInsumoAmounts(r.insumos);
-  let mat = 0, mo = 0, total = 0;
+  let mat = 0, mo = 0, total = 0, matIVA = 0;
   (r.insumos || []).forEach(i => {
     total += i.i || 0;
-    if (i.t === 'M' || i.t === 'B') mat += i.i || 0;
+    if (i.t === 'M') { mat += i.i || 0; matIVA += i.i || 0; }
+    else if (i.t === 'B') { mat += i.i || 0; matIVA += computeBasicoMatMonto(i); }
     else mo += i.i || 0;
   });
-  r.mat = round2(mat);
-  r.mo = round2(mo);
-  r.p = round2(total);
+  r.mat    = round2(mat);
+  r.matIVA = round2(matIVA);  // Mat directos + porción-M de básicos (para IVA de materiales)
+  r.mo     = round2(mo);
+  r.p      = round2(total);
   r.insumos_modified = true;
 }
 
@@ -3108,6 +3161,65 @@ function renderConceptRow(r, idx, visibleNo) {
   </tr>`;
 }
 
+// ── Básico de obra: porción de materiales y desglose visual ──
+function computeBasicoMatMonto(i) {
+  // Devuelve el monto de materiales (M) contenido en un insumo tipo B,
+  // escalado por el multiplicador de ese básico dentro del concepto.
+  const rawParts = (I_BREAKDOWN[i.cod] || []).map(p => ({ ...p, i: 0 }));
+  if (!rawParts.length) return 0;
+  recalcInsumoAmounts(rawParts);
+  const mult = crewConceptMultiplier(i);
+  return round2(rawParts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
+}
+
+function renderBasicoDetailRow(i, colspan = 8) {
+  const rawParts = (I_BREAKDOWN[i.cod] || []).map(p => ({ ...p, i: 0 }));
+  if (!rawParts.length) return '';
+  recalcInsumoAmounts(rawParts);
+  const mult    = crewConceptMultiplier(i);
+  const TLABEL  = { M: 'Mat', O: 'MO', E: 'Eq', B: 'B.' };
+  const TCLS    = { M: 'ins-basico-tipo-m', O: 'ins-basico-tipo-mo', E: 'ins-basico-tipo-e' };
+  const rows = rawParts.map(part => {
+    const de = I_DICT[part.cod] || [part.c || part.cod, part.u || '', 0];
+    const desc  = part.c || de[0] || part.cod;
+    const un    = part.u || de[1] || '';
+    const cs    = part.cs ?? de[2] ?? 0;
+    const qUnit = Number(part.q || 0);
+    const amtConcept = round2((part.i || 0) * mult);
+    const tipo  = TLABEL[part.t] || part.t;
+    return `<tr>
+      <td><span class="ins-basico-tipo ${TCLS[part.t] || ''}">${tipo}</span></td>
+      <td>${escHtml(desc)}</td>
+      <td>${escHtml(un)}</td>
+      <td class="num">${qUnit.toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
+      <td class="num">${(qUnit * mult).toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
+      <td class="num">${fmt(cs)}</td>
+      <td class="num"><strong>${fmt(amtConcept)}</strong></td>
+    </tr>`;
+  }).join('');
+  const matMonto = round2(rawParts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
+  return `<tr class="ins-basico-detail">
+    <td colspan="${colspan}">
+      <div class="ins-basico-box">
+        <div class="ins-basico-title">Composición del básico de obra
+          <span class="ins-basico-mat-tag">Mat: ${fmt(matMonto)}</span>
+        </div>
+        <table class="ins-basico-table">
+          <thead><tr>
+            <th style="width:46px">Tipo</th><th>Insumo</th>
+            <th style="width:46px">Un.</th>
+            <th class="num" style="width:88px">Cant./básico</th>
+            <th class="num" style="width:88px">Cant./concepto</th>
+            <th class="num" style="width:88px">P.U.</th>
+            <th class="num" style="width:88px">Importe</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </td>
+  </tr>`;
+}
+
 // ========================================================
 // INSUMOS DRAWER
 // ── Cuadrilla lettering (A, B, C… por concepto) ─────────────
@@ -3185,6 +3297,9 @@ function renderInsumosDrawer(r, idx) {
         <td class="ins-imp" id="ins-imp-${idx}-${k}">${fmt(i.i)}</td>
         <td class="ins-act"><button class="btn-del" onclick="delInsumo(${idx},${k})" title="Eliminar insumo">×</button></td>
       </tr>`;
+      // Desglose expandido: cuadrillas (O) y básicos de obra (B)
+      if (i.t === 'O') html += renderCrewDetailRow(i, 7);
+      if (i.t === 'B') html += renderBasicoDetailRow(i, 7);
     });
     html += `</tbody></table>`;
   }
@@ -4047,12 +4162,13 @@ function recalcAfterEdit(letterArg = activePartida) {
 
 function recalcTotals() {
   STATE.imprevistos = parseFloat(document.getElementById('adj-imp').value) || 0;
-  let totMat=0, totMo=0, totP=0, count=0;
+  let totMat=0, totMatIVA=0, totMo=0, totP=0, count=0;
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
-      totMat += (r.mat||0) * r.qty;
-      totMo  += (r.mo ||0) * r.qty;
-      totP   += (r.p  ||0) * r.qty;
+      totMat    += (r.mat||0) * r.qty;
+      totMatIVA += (r.matIVA ?? r.mat ?? 0) * r.qty;  // Mat directos + porción-M de básicos
+      totMo     += (r.mo ||0) * r.qty;
+      totP      += (r.p  ||0) * r.qty;
       count++;
     });
   });
@@ -4082,7 +4198,7 @@ function recalcTotals() {
   } else if (apuFmt === 'iva') {
     dispCfAmt = 0;
     dispUtilAmt = sub1 * cuPorc / 100;
-    currentFactor = directo > 0 ? (sub1 + dispUtilAmt + totMat * 0.16) / directo : 1;
+    currentFactor = directo > 0 ? (sub1 + dispUtilAmt + totMatIVA * 0.16) / directo : 1;
   } else {
     currentFactor = directo > 0 ? (sub2 + utilAmt) / directo : 1;
   }
