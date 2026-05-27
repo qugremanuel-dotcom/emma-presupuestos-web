@@ -1702,7 +1702,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       </label>
       <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:10px;font-size:13px;cursor:pointer;line-height:1.35">
         <input type="radio" name="puFmt" value="unico" onchange="updatePUCFRow()" style="margin-top:2px">
-        <span><strong>Indirecto único</strong> — CD → CI único → Precio Unitario</span>
+        <span><strong>Indirecto único</strong> — CD → CI único → CU (Utilidad) → Precio Unitario</span>
       </label>
       <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;cursor:pointer;line-height:1.35">
         <input type="radio" name="puFmt" value="iva" onchange="updatePUCFRow()" style="margin-top:2px">
@@ -1713,14 +1713,14 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       <div style="padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CI) Indirectos %</label>
         <div style="display:flex;align-items:center;gap:6px">
-          <input id="puFmt-ci" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
+          <input id="puFmt-ci" type="text" inputmode="decimal" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
           <span style="font-size:11px;color:#5F5E5A">% del CD</span>
         </div>
       </div>
       <div style="padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CU) Utilidad %</label>
         <div style="display:flex;align-items:center;gap:6px">
-          <input id="puFmt-cu" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
+          <input id="puFmt-cu" type="text" inputmode="decimal" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
           <span style="font-size:11px;color:#5F5E5A">% del Subtotal</span>
         </div>
       </div>
@@ -1728,7 +1728,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
     <div id="puFmt-cf-row" style="margin-bottom:16px;padding:12px 14px;background:#F1EFE8;border:1px solid #D3D1C7">
       <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#5F5E5A;display:block;margin-bottom:6px">(CF) Financiamiento %</label>
       <div style="display:flex;align-items:center;gap:8px">
-        <input id="puFmt-cf" type="number" min="0" max="100" step="0.01" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
+        <input id="puFmt-cf" type="text" inputmode="decimal" value="0" style="border:1px solid #D3D1C7;padding:7px 10px;font-size:13px;width:90px;background:white;outline:none;font-family:inherit">
         <span style="font-size:12px;color:#5F5E5A">% del Subtotal 1 (CD + CI)</span>
       </div>
     </div>
@@ -4192,8 +4192,9 @@ function recalcTotals() {
   const apuFmt = STATE.ci.apuFormat || 'cascada';
   let dispCfAmt = cfAmt, dispUtilAmt = utilAmt;
   if (apuFmt === 'unico') {
-    dispCfAmt = 0; dispUtilAmt = 0;
-    currentFactor = directo > 0 ? sub1 / directo : 1;
+    dispCfAmt = 0;
+    dispUtilAmt = sub1 * cuPorc / 100;
+    currentFactor = directo > 0 ? (sub1 + dispUtilAmt) / directo : 1;
   } else if (apuFmt === 'iva') {
     dispCfAmt = 0;
     dispUtilAmt = sub1 * cuPorc / 100;
@@ -4271,7 +4272,7 @@ function printBudget() {
   const _apuFmt = STATE.ci.apuFormat || 'cascada';
   const _sub1pb = directo + (STATE.ci.montoTotal || 0);
   const cfAmt   = _apuFmt === 'cascada' ? (STATE.ci.cfAmt || 0) : 0;
-  const utilAmt = _apuFmt === 'unico'   ? 0
+  const utilAmt = _apuFmt === 'unico'   ? _sub1pb * (STATE.ci.utilNetPorc || 0) / 100
                 : _apuFmt === 'iva'     ? _sub1pb * (STATE.ci.utilNetPorc || 0) / 100
                 : (STATE.ci.utilAmtCascade || 0);
   const total   = directo * currentFactor  + impAmt;
@@ -4410,7 +4411,7 @@ function renderPrintArea() {
   const _apuFmtPa = STATE.ci.apuFormat || 'cascada';
   const _sub1pa   = directo + (STATE.ci.montoTotal || 0);
   const cfAmt   = _apuFmtPa === 'cascada' ? (STATE.ci.cfAmt || 0) : 0;
-  const utilAmt = _apuFmtPa === 'unico'   ? 0
+  const utilAmt = _apuFmtPa === 'unico'   ? _sub1pa * (STATE.ci.utilNetPorc || 0) / 100
                 : _apuFmtPa === 'iva'     ? _sub1pa * (STATE.ci.utilNetPorc || 0) / 100
                 : (STATE.ci.utilAmtCascade || 0);
   const total   = directo * currentFactor + impAmt; // coincide con recalcTotals
@@ -5313,7 +5314,8 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
       </tr>`;
       html += `<tr class="pie-letras"><td colspan="7" class="letras-cell">SON: ${esc(numLetrasPesos(pu))}</td></tr>`;
     } else if (format === 'unico') {
-      const pu = sub1;
+      const cu = sub1 * cuPorc / 100;
+      const pu = sub1 + cu;
       html = `<tr class="pie-header"><td colspan="7" class="pie-header-label">PIE DE INDIRECTOS — ${esc(fmtLabel)}</td></tr>`;
       html += `<tr class="pie-cd">
         <td colspan="4">(CD) COSTO DIRECTO</td>
@@ -5327,8 +5329,20 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         <td class="num pie-amt">${money(ci)}</td>
         <td></td>
       </tr>`;
+      html += `<tr class="pie-sub">
+        <td colspan="4">SUBTOTAL 1</td>
+        <td colspan="2" class="num pie-amt">${money(sub1)}</td>
+        <td></td>
+      </tr>`;
+      html += `<tr class="pie-row">
+        <td colspan="3">(CU) UTILIDAD</td>
+        <td class="center pie-rate">${pct(cuPorc)}</td>
+        <td></td>
+        <td class="num pie-amt">${money(cu)}</td>
+        <td></td>
+      </tr>`;
       html += `<tr class="pie-pu">
-        <td colspan="4">PRECIO UNITARIO (CD+CI)</td>
+        <td colspan="4">PRECIO UNITARIO (CD+CI+CU)</td>
         <td colspan="2" class="num pie-pu-val">${money(pu)}</td>
         <td></td>
       </tr>`;
@@ -5392,7 +5406,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         const _s2 = _sub1 + _cf;
         pu = _s2 + _s2 * cuPorc / 100;
       } else if (format === 'unico') {
-        pu = _sub1;
+        pu = _sub1 + _sub1 * cuPorc / 100;
       } else { // iva
         pu = _sub1 + _sub1 * cuPorc / 100 + matAmt * 0.16;
       }
