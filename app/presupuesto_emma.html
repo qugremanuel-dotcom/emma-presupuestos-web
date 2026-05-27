@@ -3165,27 +3165,26 @@ function renderConceptRow(r, idx, visibleNo) {
 function computeBasicoMatMonto(i) {
   // Devuelve el monto de materiales (M) contenido en un insumo tipo B,
   // escalado por el multiplicador de ese básico dentro del concepto.
-  const rawParts = (I_BREAKDOWN[i.cod] || []).map(p => ({ ...p, i: 0 }));
-  if (!rawParts.length) return 0;
-  recalcInsumoAmounts(rawParts);
+  // Usa los valores i pre-calculados del breakdown (no recalcular: cs no está en M-type).
+  const parts = I_BREAKDOWN[i.cod];
+  if (!parts || !parts.length) return 0;
   const mult = crewConceptMultiplier(i);
-  return round2(rawParts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
+  return round2(parts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
 }
 
 function renderBasicoDetailRow(i, colspan = 8) {
-  const rawParts = (I_BREAKDOWN[i.cod] || []).map(p => ({ ...p, i: 0 }));
-  if (!rawParts.length) return '';
-  recalcInsumoAmounts(rawParts);
+  const parts = I_BREAKDOWN[i.cod];
+  if (!parts || !parts.length) return '';
   const mult    = crewConceptMultiplier(i);
   const TLABEL  = { M: 'Mat', O: 'MO', E: 'Eq', B: 'B.' };
   const TCLS    = { M: 'ins-basico-tipo-m', O: 'ins-basico-tipo-mo', E: 'ins-basico-tipo-e' };
-  const rows = rawParts.map(part => {
+  const rows = parts.map(part => {
     const de = I_DICT[part.cod] || [part.c || part.cod, part.u || '', 0];
     const desc  = part.c || de[0] || part.cod;
     const un    = part.u || de[1] || '';
     const cs    = part.cs ?? de[2] ?? 0;
     const qUnit = Number(part.q || 0);
-    const amtConcept = round2((part.i || 0) * mult);
+    const amtConcept = round2((part.i || 0) * mult);  // i pre-calculado, escalado al concepto
     const tipo  = TLABEL[part.t] || part.t;
     return `<tr>
       <td><span class="ins-basico-tipo ${TCLS[part.t] || ''}">${tipo}</span></td>
@@ -3197,7 +3196,7 @@ function renderBasicoDetailRow(i, colspan = 8) {
       <td class="num"><strong>${fmt(amtConcept)}</strong></td>
     </tr>`;
   }).join('');
-  const matMonto = round2(rawParts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
+  const matMonto = round2(parts.filter(p => p.t === 'M').reduce((s, p) => s + (p.i || 0) * mult, 0));
   return `<tr class="ins-basico-detail">
     <td colspan="${colspan}">
       <div class="ins-basico-box">
