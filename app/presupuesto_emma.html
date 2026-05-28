@@ -2563,6 +2563,53 @@ function highlight(text, q) {
 const round2 = n => Math.round((+n) * 100) / 100;
 const round6 = n => Math.round((+n) * 1000000) / 1000000;
 
+// Convierte número a letras en español (para precio con letra en PDF)
+function numToLetras(n) {
+  const abs    = Math.abs(n);
+  const entero = Math.floor(abs);
+  const cents  = Math.round((abs - entero) * 100);
+  return _nInt(entero).toUpperCase() + ' PESOS ' + String(cents).padStart(2, '0') + '/100 M.N.';
+}
+function _nInt(n) {
+  if (n === 0) return 'CERO';
+  const U  = ['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
+               'diez','once','doce','trece','catorce','quince','dieciséis',
+               'diecisiete','dieciocho','diecinueve'];
+  const VT = ['veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco',
+               'veintiséis','veintisiete','veintiocho','veintinueve'];
+  const D  = ['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+  const C  = ['','ciento','doscientos','trescientos','cuatrocientos','quinientos',
+               'seiscientos','setecientos','ochocientos','novecientos'];
+  function lt100(x) {
+    if (x < 20)  return U[x];
+    if (x < 30)  return VT[x - 20];
+    const d = Math.floor(x/10), u = x%10;
+    return u === 0 ? D[d] : D[d] + ' y ' + U[u];
+  }
+  function lt1000(x) {
+    if (x === 0)   return '';
+    if (x === 100) return 'cien';
+    if (x < 100)   return lt100(x);
+    const c = Math.floor(x/100), r = x%100;
+    const cs = (c === 1 && r > 0) ? 'ciento' : C[c];
+    return r === 0 ? cs : cs + ' ' + lt100(r);
+  }
+  if (n < 1000)   return lt1000(n);
+  if (n < 1000000) {
+    const m = Math.floor(n/1000), r = n%1000;
+    const ms = m === 1 ? 'mil' : lt1000(m) + ' mil';
+    return r === 0 ? ms : ms + ' ' + lt1000(r);
+  }
+  if (n < 1000000000) {
+    const m = Math.floor(n/1000000), r = n%1000000;
+    const ms = m === 1 ? 'un millón' : lt1000(m) + ' millones';
+    return r === 0 ? ms : ms + ' ' + _nInt(r);
+  }
+  const m = Math.floor(n/1000000000), r = n%1000000000;
+  const ms = m === 1 ? 'mil millones' : lt1000(m) + ' mil millones';
+  return r === 0 ? ms : ms + ' ' + _nInt(r);
+}
+
 // ========================================================
 // FASAR / MANO DE OBRA
 // ========================================================
@@ -4526,7 +4573,7 @@ function printBudget() {
     <div style="background:#1A1A1A;color:#C8A96E;padding:9px 14px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700">Resumen general</div>
     <div style="padding:12px 14px">
       <div style="display:flex;justify-content:space-between;border-top:2px solid #C8A96E;padding:8px 0;font-size:12px;font-weight:700;margin-top:4px"><span>Total general${STATE.ci.apuFormat === 'iva' ? '<span style="font-size:9px;color:#888780;font-weight:400;margin-left:6px">(IVA de materiales incluido)</span>' : ''}</span><span style="font-family:ui-monospace,monospace">${fmtN(total)}</span></div>
-      ${STATE.ci.apuFormat !== 'iva' ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #E5E3DA;padding:6px 0;font-size:11px;color:#1A6B3C"><span>Total con IVA <span style="font-size:9px;color:#888780">(+ 16%)</span></span><span style="font-family:ui-monospace,monospace;font-weight:700">${fmtN(total * 1.16)}</span></div>` : ''}
+      ${STATE.ci.apuFormat !== 'iva' ? `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #C8A96E;padding:8px 0;font-size:14px;font-weight:700;color:#1A6B3C"><span>Total con IVA <span style="font-size:9px;color:#888780;font-weight:400">(+ 16%)</span></span><span style="font-family:ui-monospace,monospace">${fmtN(total * 1.16)}</span></div><div style="padding:7px 0 4px;font-size:10px;color:#5F5E5A;text-align:center;letter-spacing:0.04em;font-style:italic">* ${numToLetras(total * 1.16)} *</div>` : ''}
       <div style="border-top:1px solid #C8A96E;margin-top:8px;padding-top:10px">
         <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-bottom:6px">Por partida</div>
         ${resumenPartidas}
