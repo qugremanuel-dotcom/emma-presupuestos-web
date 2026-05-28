@@ -1301,7 +1301,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   .shell { margin: 0; border: none; box-shadow: none; max-width: none; }
   .head, .toolbar, .view-tabs, .app-view, .totals, .footer, .modal-bg, .ins-panel-bg, .toast { display: none !important; }
   .partida-block-print { display: block !important; break-inside: avoid; margin: 14px 0; }
-  .print-totals { break-inside: avoid; margin: 16px 0 0; }
+  .print-totals { display: none !important; }
   .print-footer { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #D3D1C7; padding: 9px 12mm; font-size: 9.5px; color: #5F5E5A; }
 }
 .print-only { display: none; }
@@ -1678,8 +1678,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   </section>
 
   <div class="footer screen-only">
-    <span>Proyecto Emma</span> · <span id="baseInfoFoot">Base de precios local</span> · Respaldo disponible en JSON ·
-    <a href="#" onclick="event.preventDefault(); resetData();">Borrar todo</a>
+    Emma-Presupuestos (<span id="footYear"></span>) · <a href="#" onclick="event.preventDefault(); resetData();">Borrar todo</a>
   </div>
 </div>
 
@@ -3852,11 +3851,11 @@ function renderInsumosList() {
   const customCount = items.filter(x => custom[x.cod] !== undefined).length;
   sub.textContent  = `${items.length} material${items.length===1?'':'es'} · ${fmt(totalMat)}`
     + (customCount > 0 ? ` · ${customCount} con precio personalizado` : '');
-  const rows = items.map(x => {
+  const rows = items.map((x, idx) => {
     const isCustom = custom[x.cod] !== undefined;
     const safeKey  = (x.cod || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<tr class="${isCustom ? 'mat-custom-row' : ''}">
-      <td class="mat-cod">${escHtml(x.cod || '—')}</td>
+      <td style="text-align:center;font-size:12px;color:var(--ink-3);white-space:nowrap">${idx + 1}</td>
       <td>${escHtml(x.c)}</td>
       <td>${escHtml(x.u)}</td>
       <td style="padding:4px 8px">
@@ -3875,7 +3874,7 @@ function renderInsumosList() {
     </div>
     <table class="insumos-list-table">
       <thead><tr>
-        <th style="width:140px">Código</th>
+        <th style="width:50px;text-align:center">No.</th>
         <th>Descripción</th>
         <th style="width:70px">Un.</th>
         <th style="width:140px">P.U.</th>
@@ -4299,8 +4298,8 @@ function hydrateMeta() {
   document.getElementById('dateLabel').textContent =
     new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' }) +
     ' · Base ' + BASE_INFO.version;
-  const baseFoot = document.getElementById('baseInfoFoot');
-  if (baseFoot) baseFoot.textContent = `Base ${BASE_INFO.version} · ${BASE_INFO.conceptos.toLocaleString('es-MX')} conceptos`;
+  const footYear = document.getElementById('footYear');
+  if (footYear) footYear.textContent = new Date().getFullYear();
   applyLogo();
 }
 
