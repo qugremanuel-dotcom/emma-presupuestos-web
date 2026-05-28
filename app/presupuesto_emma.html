@@ -3607,6 +3607,19 @@ function loadInsumosForRow(r) {
   recalcInsumoAmounts(r.insumos);
 }
 
+// Garantiza que r.matIVA esté calculado (mat. directos + porción-M de básicos).
+// No modifica r.p / r.mat / r.mo — solo rellena el campo faltante.
+function ensureMatIVA(r) {
+  if (r.matIVA != null) return;
+  if (!r.insumos) loadInsumosForRow(r);
+  let mIva = 0;
+  (r.insumos || []).forEach(i => {
+    if (i.t === 'M') mIva += i.i || 0;
+    else if (i.t === 'B') mIva += computeBasicoMatMonto(i);
+  });
+  r.matIVA = round2(mIva);
+}
+
 function getComparableInsumos(r) {
   if (r.insumos) return r.insumos;
   if (r.libre) return [];
@@ -4175,8 +4188,9 @@ function recalcTotals() {
   let totMat=0, totMatIVA=0, totMo=0, totP=0, count=0;
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
+      ensureMatIVA(r);  // calcula r.matIVA si aún no está (mat directos + M en básicos)
       totMat    += (r.mat||0) * r.qty;
-      totMatIVA += (r.matIVA ?? r.mat ?? 0) * r.qty;  // Mat directos + porción-M de básicos
+      totMatIVA += (r.matIVA ?? r.mat ?? 0) * r.qty;
       totMo     += (r.mo ||0) * r.qty;
       totP      += (r.p  ||0) * r.qty;
       count++;
