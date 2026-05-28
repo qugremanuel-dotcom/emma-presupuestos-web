@@ -246,6 +246,13 @@ table.fasar-labor-table tbody tr:nth-child(even) td { background: var(--paper-2)
 .fasar-labor-code { font-family: ui-monospace, monospace; font-weight: 700; color: #00335F; }
 .fasar-labor-desc { color: var(--ink-2); }
 .fasar-labor-num { text-align: right; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fasar-sal-input {
+  width: 88px; text-align: right; border: 1px solid var(--line); background: white;
+  padding: 4px 6px; font-size: 12px; font-family: ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.fasar-sal-input:focus { border-color: var(--gold); background: #FFFEF8; }
+.fasar-sal-input:hover { border-color: var(--gold-dk); }
 
 /* ============ MAIN GRID ============ */
 .work {
@@ -2761,16 +2768,39 @@ function renderFasarLaborTable(f = STATE.fasar) {
     const salarioBase = Number(base[cod] ?? entry[2] ?? 0);
     const calc = calcFasarForSalary(salarioBase, f);
     const visibleCode = displayWorkerCode(cod);
+    const safeKey = cod.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<tr>
       <td class="fasar-labor-desc"><span class="fasar-labor-code">${escHtml(visibleCode)}</span> ${escHtml(entry[0] || '')}</td>
       <td class="fasar-labor-num">1</td>
       <td>${escHtml(entry[1] || 'JOR')}</td>
-      <td class="fasar-labor-num">${fmt(salarioBase)}</td>
+      <td style="padding:4px 8px">
+        <input type="number" class="fasar-sal-input" min="0" step="0.01"
+               value="${round2(salarioBase).toFixed(2)}"
+               oninput="onFasarSalInput(this,'${safeKey}')">
+      </td>
       <td class="fasar-labor-num">${round6(calc.fsbc).toFixed(6)}</td>
       <td class="fasar-labor-num">${round6(calc.fsr).toFixed(6)}</td>
       <td class="fasar-labor-num"><strong>${fmt(calc.salarioReal)}</strong></td>
     </tr>`;
   }).join('');
+}
+
+// Edición en vivo del salario base en la tabla FASAR
+function onFasarSalInput(el, cod) {
+  const val = parseFloat(el.value) || 0;
+  if (!STATE.fasar.baseCosts) STATE.fasar.baseCosts = {};
+  STATE.fasar.baseCosts[cod] = val;
+  save();
+  // Actualizar en vivo FSBC, FSR y Salario Real de la misma fila
+  const f = normalizeFasar(STATE.fasar);
+  const calc = calcFasarForSalary(val, f);
+  const tr = el.closest('tr');
+  if (tr) {
+    const tds = tr.querySelectorAll('td');
+    if (tds[4]) tds[4].textContent = round6(calc.fsbc).toFixed(6);
+    if (tds[5]) tds[5].textContent = round6(calc.fsr).toFixed(6);
+    if (tds[6]) tds[6].innerHTML = `<strong>${fmt(calc.salarioReal)}</strong>`;
+  }
 }
 
 function applyFasarDictionaryPrices() {
