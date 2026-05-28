@@ -1097,6 +1097,22 @@ table.insumos-list-table td {
   font-size: 14px;
 }
 table.insumos-list-table tbody tr:nth-child(even) td { background: var(--paper-2); }
+/* Edición de precios de materiales */
+.mat-cost-input {
+  width: 90px; text-align: right; border: 1px solid var(--line); background: white;
+  padding: 4px 6px; font-size: 13px; font-family: ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.mat-cost-input:hover { border-color: var(--gold-dk); }
+.mat-cost-input:focus { border-color: var(--gold); background: #FFFEF8; }
+.mat-cost-custom { border-color: #C88B00 !important; background: #FFFBF0 !important; color: #7A4800; }
+.mat-custom-row td { background: #FEFAF0 !important; }
+.mat-cod { font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.mat-list-toolbar {
+  padding: 10px 16px; background: var(--paper); border-bottom: 1px solid var(--line-soft);
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.mat-list-toolbar .mat-toolbar-note { font-size: 11px; color: var(--ink-3); }
 table.insumos-list-table tr:last-child td { border-bottom: none; }
 .ins-list-code {
   font-family: ui-monospace, monospace;
@@ -1445,15 +1461,12 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   <section class="app-view insumos-list screen-only" id="insumosView">
     <div class="insumos-list-head">
       <div>
-        <div class="insumos-list-title">Listado de insumos — acumulado del presupuesto</div>
+        <div class="insumos-list-title">Materiales del presupuesto</div>
         <div class="insumos-list-sub" id="insumosListSub">Agrega conceptos para generar el concentrado.</div>
       </div>
       <div class="insumos-filters">
-        <button class="filter-chip active" id="filter-all" onclick="setInsumoFilter('all')">Todos</button>
-        <button class="filter-chip" id="filter-M" onclick="setInsumoFilter('M')">Materiales</button>
-        <button class="filter-chip" id="filter-B" onclick="setInsumoFilter('B')">Básicos</button>
-        <button class="filter-chip" id="filter-O" onclick="setInsumoFilter('O')">Mano de obra</button>
-        <button class="filter-chip" id="filter-E" onclick="setInsumoFilter('E')">Equipo</button>
+        <button class="btn btn-gold" onclick="applyCustomMaterialsToBudget()">Actualizar presupuesto</button>
+        <button class="btn btn-sm" onclick="resetCustomMaterialCosts()">↺ Restablecer precios</button>
         <button class="btn btn-sm" onclick="exportInsumosList()">Exportar</button>
         <button class="btn btn-sm" onclick="printInsumosList()">⎙ Imprimir</button>
         <button class="btn btn-sm" onclick="exportConceptBreakdowns()">Desglose conceptos</button>
@@ -2048,6 +2061,7 @@ async function startInit() {
   load();
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
+  applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
   hydrateMeta();
   hydrateFasar();
   bindMeta();
@@ -2271,6 +2285,7 @@ const STATE = {
   imprevistos: 5, iva: 0,
   fasar: cloneFasar(DEFAULT_FASAR),
   ci: ciDefaultState(),
+  customMaterialCosts: {},  // { [cod]: price } — precios de materiales editados por el usuario
   customPartidas: [],   // partidas creadas por el usuario [[letter, name], ...]
 };
 PARTIDAS.forEach(([l]) => STATE.rows[l] = []);
@@ -2307,6 +2322,7 @@ function save() {
       ci: STATE.ci,
       active: activePartida,
       customPartidas: STATE.customPartidas,
+      customMaterialCosts: STATE.customMaterialCosts || {},
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(data));
     // Respaldo silencioso al servidor (no bloquea la UI)
@@ -2348,6 +2364,7 @@ function load() {
       STATE.ci.porcCampo    = (d.ci.porcCampo    && d.ci.porcCampo.length    ? d.ci.porcCampo    : CI_PORC_CAMPO_DEF).map(x => ({...x}));
     }
     if (d.active && NAME_BY_LETTER[d.active]) activePartida = d.active;
+    STATE.customMaterialCosts = d.customMaterialCosts || {};
   } catch(e) { console.warn('load failed', e); }
 }
 function resetData() {
@@ -2363,6 +2380,7 @@ function resetData() {
   STATE.imprevistos = 5; STATE.iva = 0;
   STATE.fasar = cloneFasar(DEFAULT_FASAR);
   STATE.ci = ciDefaultState();
+  STATE.customMaterialCosts = {};
   activePartida = 'A';
   applyFasarDictionaryPrices();
   hydrateMeta(); hydrateFasar(); render();
@@ -2418,7 +2436,9 @@ function restoreSnapshot(data) {
     STATE.ci.porcCentral  = (data.ci.porcCentral  && data.ci.porcCentral.length  ? data.ci.porcCentral  : CI_PORC_CENTRAL_DEF).map(x => ({...x}));
     STATE.ci.porcCampo    = (data.ci.porcCampo    && data.ci.porcCampo.length    ? data.ci.porcCampo    : CI_PORC_CAMPO_DEF).map(x => ({...x}));
   }
+  STATE.customMaterialCosts = data.customMaterialCosts || {};
   applyFasarDictionaryPrices();
+  applyCustomMaterialPrices();
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
   save();
   hydrateMeta();
@@ -2817,6 +2837,91 @@ function applyFasarDictionaryPrices() {
     }
   });
   recalcCrewDictionaryPrices();
+}
+
+// ── Precios de materiales personalizados ────────────────────────────────────
+// Aplica STATE.customMaterialCosts a I_DICT y recalcula básicos en I_BREAKDOWN
+// que usen esos materiales.
+function applyCustomMaterialPrices() {
+  const custom = STATE.customMaterialCosts || {};
+  if (!Object.keys(custom).length) return;
+  // Paso 1: actualizar I_DICT para los materiales modificados
+  Object.entries(custom).forEach(([cod, price]) => {
+    if (I_DICT[cod]) I_DICT[cod][2] = price;
+  });
+  // Paso 2: recomputar básicos en I_BREAKDOWN que usen alguno de esos materiales
+  const changedSet = new Set(Object.keys(custom));
+  Object.entries(I_BREAKDOWN).forEach(([basicCod, parts]) => {
+    if (!I_DICT[basicCod]) return;               // no es un insumo dict, skip
+    if (!parts.some(p => changedSet.has(p.cod))) return;  // no usa ningún material cambiado
+    let total = 0;
+    parts.forEach(p => {
+      const dict = I_DICT[p.cod];
+      const cs   = dict ? Number(dict[2] || 0) : (p.cs != null ? Number(p.cs) : 0);
+      const imp  = p.op === '/' ? (p.q ? cs / p.q : 0) : cs * (p.q || 0);
+      p.cs = round2(cs);
+      p.i  = round2(imp);
+      total += imp;
+    });
+    I_DICT[basicCod][2] = round2(total);
+  });
+}
+
+// Propaga precios de materiales a I_DICT, básicos, filas del presupuesto y recalcula
+function applyCustomMaterialsToBudget() {
+  applyCustomMaterialPrices();
+  PARTIDAS.forEach(([l]) => {
+    STATE.rows[l].forEach(r => {
+      if (!r.insumos) { r.matIVA = null; return; }
+      let changed = false;
+      r.insumos.forEach(ins => {
+        if ((ins.t === 'M' || ins.t === 'B') && ins.cod && I_DICT[ins.cod]) {
+          const newCs = Number(I_DICT[ins.cod][2] || 0);
+          if (Math.abs(newCs - (ins.cs || 0)) > 0.001) {
+            ins.cs = newCs;
+            ins.i  = round2(ins.op === '/' ? (ins.q ? newCs / ins.q : 0) : newCs * (ins.q || 0));
+            changed = true;
+          }
+        }
+      });
+      if (changed) {
+        let mat=0, mo=0, total=0, matIVA=0;
+        r.insumos.forEach(i => {
+          total += i.i || 0;
+          if      (i.t === 'M') { mat += i.i||0; matIVA += i.i||0; }
+          else if (i.t === 'B') { mat += i.i||0; matIVA += computeBasicoMatMonto(i); }
+          else                    mo  += i.i||0;
+        });
+        r.mat = round2(mat); r.matIVA = round2(matIVA);
+        r.mo  = round2(mo);  r.p      = round2(total);
+        r.insumos_modified = true;
+      } else {
+        r.matIVA = null; // forzar recomputo vía ensureMatIVA
+      }
+    });
+  });
+  calcularPresupuesto(false);
+  save();
+  toast('Precios de materiales actualizados en el presupuesto');
+}
+
+// Guarda el precio editado de un material sin propagar (propagación al hacer clic "Actualizar")
+function onMaterialCostInput(el, cod) {
+  const val = round2(parseFloat(el.value) || 0);
+  STATE.customMaterialCosts = STATE.customMaterialCosts || {};
+  STATE.customMaterialCosts[cod] = val;
+  el.classList.add('mat-cost-custom');
+  const tr = el.closest('tr');
+  if (tr) tr.classList.add('mat-custom-row');
+  save();
+}
+
+// Restablece todos los precios de materiales al catálogo original (recarga la página)
+function resetCustomMaterialCosts() {
+  if (!confirm('¿Restablecer todos los precios de materiales a los originales del catálogo?\nLa página se recargará.')) return;
+  STATE.customMaterialCosts = {};
+  save();
+  location.reload();
 }
 
 function recalcCrewDictionaryPrices() {
@@ -3730,45 +3835,55 @@ function buildInsumosList() {
 }
 
 function renderInsumosList() {
-  const box = document.getElementById('insumosView');
   const body = document.getElementById('insumosListBody');
-  const sub = document.getElementById('insumosListSub');
-  if (!box || !body || !sub) return;
-  const items = buildInsumosList();
+  const sub  = document.getElementById('insumosListSub');
+  if (!body || !sub) return;
+  // Solo materiales (M), sin porcentajes globales
+  const items = buildInsumosList()
+    .filter(x => x.t === 'M' && !x.globalPercent)
+    .sort((a, b) => a.c.localeCompare(b.c, 'es'));
   if (items.length === 0) {
     sub.textContent = 'Agrega conceptos al presupuesto para generar este listado.';
-    body.innerHTML = '<div class="insumos-list-empty">No hay insumos acumulados en este presupuesto.</div>';
+    body.innerHTML = '<div class="insumos-list-empty">No hay materiales acumulados en este presupuesto.</div>';
     return;
   }
-  const total = items.reduce((s, x) => s + x.importe, 0);
-  sub.textContent = `${items.length.toLocaleString('es-MX')} insumo${items.length===1?'':'s'} consolidado${items.length===1?'':'s'} · ${fmt(total)}`;
-  const filtered = (activeInsumoFilter === 'all' ? items : items.filter(x => x.t === activeInsumoFilter))
-    .sort((a,b) => (TIPO_NAME[a.t] || a.t).localeCompare(TIPO_NAME[b.t] || b.t, 'es') || a.c.localeCompare(b.c, 'es'));
-  if (filtered.length === 0) {
-    body.innerHTML = '<div class="insumos-list-empty">No hay insumos en el filtro seleccionado.</div>';
-    return;
-  }
-  const typeClass = t => t === 'O' ? 'mo' : (t === 'E' ? 'eq' : (t === 'B' ? 'bas' : ''));
-  const typeLabel = t => t === 'M' ? 'Material' : (t === 'B' ? 'Básico' : (t === 'O' ? 'MO' : 'Equipo'));
-  const rows = filtered.map(x => `<tr>
-    <td><span class="ins-list-type ${typeClass(x.t)}">${typeLabel(x.t)}</span></td>
-    <td>${escHtml(x.c)}</td>
-    <td>${escHtml(x.u)}</td>
-    <td class="ins-list-num">${x.globalPercent ? `${(x.percentRate * 100).toLocaleString('es-MX', { maximumFractionDigits: 2 })}% de MO` : fmt(x.cs)}</td>
-    <td class="ins-list-num"><strong>${x.globalPercent ? 'Global' : x.calcQty.toLocaleString('es-MX', { maximumFractionDigits: 6 })}</strong></td>
-    <td class="ins-list-num"><strong>${fmt(x.importe)}</strong></td>
-  </tr>`).join('');
-  body.innerHTML = `<table class="insumos-list-table">
-    <thead><tr>
-      <th style="width:120px">Tipo</th>
-      <th>Descripción del insumo</th>
-      <th style="width:90px">Unidad</th>
-      <th style="width:120px">P.U.</th>
-      <th style="width:130px">Cantidad</th>
-      <th style="width:140px">Importe</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  const totalMat   = items.reduce((s, x) => s + x.importe, 0);
+  const custom     = STATE.customMaterialCosts || {};
+  const customCount = items.filter(x => custom[x.cod] !== undefined).length;
+  sub.textContent  = `${items.length} material${items.length===1?'':'es'} · ${fmt(totalMat)}`
+    + (customCount > 0 ? ` · ${customCount} con precio personalizado` : '');
+  const rows = items.map(x => {
+    const isCustom = custom[x.cod] !== undefined;
+    const safeKey  = (x.cod || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr class="${isCustom ? 'mat-custom-row' : ''}">
+      <td class="mat-cod">${escHtml(x.cod || '—')}</td>
+      <td>${escHtml(x.c)}</td>
+      <td>${escHtml(x.u)}</td>
+      <td style="padding:4px 8px">
+        <input type="number" class="mat-cost-input${isCustom ? ' mat-cost-custom' : ''}"
+               min="0" step="0.01"
+               value="${round2(x.cs).toFixed(2)}"
+               oninput="onMaterialCostInput(this,'${safeKey}')">
+      </td>
+      <td class="ins-list-num">${x.calcQty.toLocaleString('es-MX', {maximumFractionDigits:6})}</td>
+      <td class="ins-list-num"><strong>${fmt(x.importe)}</strong></td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `
+    <div class="mat-list-toolbar">
+      <span class="mat-toolbar-note">Edita el P.U. de cualquier material y haz clic en <strong>Actualizar presupuesto</strong> para propagar el cambio a todos los APU, básicos y conceptos.</span>
+    </div>
+    <table class="insumos-list-table">
+      <thead><tr>
+        <th style="width:140px">Código</th>
+        <th>Descripción</th>
+        <th style="width:70px">Un.</th>
+        <th style="width:140px">P.U.</th>
+        <th style="width:140px">Cantidad acumulada</th>
+        <th style="width:140px">Importe</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function renderBasicosList() {
