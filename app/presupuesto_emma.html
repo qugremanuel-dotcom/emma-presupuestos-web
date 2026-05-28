@@ -1431,11 +1431,11 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <div class="tot-row"><span class="lbl"><strong>Costo directo</strong></span><span class="val"><strong id="t-dir">$0.00</strong></span></div>
         <div class="tot-row muted"><span class="lbl">Costos Indirectos <span id="t-ci-porc" style="font-size:11px;color:var(--gold-dk)">(0.00%)</span></span><span class="val" id="t-ci">$0.00</span></div>
         <div class="tot-row muted">
-          <span class="lbl">CF Financiamiento <input type="number" id="adj-cf" value="0" min="0" max="30" step="0.1" title="% aplicado sobre (CD+CI) — igual que en el APU" oninput="STATE.ci.cfPorc=parseFloat(this.value)||0; recalcTotals(); save()">%</span>
+          <span class="lbl">CF Financiamiento <input type="text" inputmode="decimal" id="adj-cf" value="0" maxlength="6" title="% aplicado sobre (CD+CI) — igual que en el APU" oninput="STATE.ci.cfPorc=parseFloat(this.value)||0; recalcTotals(); save()">%</span>
           <span class="val" id="t-cf">$0.00</span>
         </div>
         <div class="tot-row">
-          <span class="lbl">Imprevistos <input type="number" id="adj-imp" value="5" min="0" max="50" step="0.5" oninput="recalcTotals(); save()">%</span>
+          <span class="lbl">Imprevistos <input type="text" inputmode="decimal" id="adj-imp" value="5" maxlength="6" oninput="recalcTotals(); save()">%</span>
           <span class="val" id="t-imp">$0.00</span>
         </div>
         <div class="tot-row muted"><span class="lbl">Utilidad <span id="t-util-porc" style="font-size:11px;color:var(--gold-dk)">(0.00%)</span></span><span class="val" id="t-util">$0.00</span></div>
@@ -1586,7 +1586,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         </div>
         <div class="ci-base-item">
           <span class="ci-base-lbl">Duración de la obra (días)</span>
-          <input class="ci-input" id="ci-duracion" type="number" min="1" max="1825" step="1" value="90" style="width:80px;font-size:15px" oninput="onCiChange()">
+          <input class="ci-input" id="ci-duracion" type="text" inputmode="decimal" value="90" maxlength="6" style="width:80px;font-size:15px" oninput="onCiChange()">
         </div>
       </div>
       <div class="ci-summary-grid">
@@ -1611,7 +1611,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
               <div style="margin-top:10px">
                 <table class="ci-staff"><tbody><tr>
                   <td class="ci-porc-desc">Pasajes y viáticos</td>
-                  <td style="width:60px"><input class="ci-input" id="ci-viaticos" type="number" min="0" max="20" step="0.1" value="2.0" oninput="onCiChange()"></td>
+                  <td style="width:60px"><input class="ci-input" id="ci-viaticos" type="text" inputmode="decimal" value="2.0" maxlength="6" oninput="onCiChange()"></td>
                   <td style="width:30px;text-align:left;padding-left:4px;font-size:11px;color:var(--ink-3)">%</td>
                   <td class="ci-imp" id="ci-viaticos-amt">$0.00</td>
                 </tr></tbody></table>
@@ -1654,9 +1654,9 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <div class="ci-section-head"><span class="ci-section-num">U</span><span class="ci-section-title">Cargo por Utilidad</span><span class="ci-section-total" id="ci-t-util">$0.00</span></div>
         <div class="ci-body">
           <div class="ci-util-grid">
-            <div class="ci-field"><label>Utilidad propuesta (%)</label><input class="ci-input" id="ci-util" type="number" min="0" max="50" step="0.5" value="6" oninput="onCiChange()"></div>
-            <div class="ci-field"><label>ISR (%)</label><input class="ci-input" id="ci-isr" type="number" min="0" max="50" step="1" value="30" oninput="onCiChange()"></div>
-            <div class="ci-field"><label>PTU (%)</label><input class="ci-input" id="ci-ptu" type="number" min="0" max="30" step="1" value="10" oninput="onCiChange()"></div>
+            <div class="ci-field"><label>Utilidad propuesta (%)</label><input class="ci-input" id="ci-util" type="text" inputmode="decimal" value="6" maxlength="6" oninput="onCiChange()"></div>
+            <div class="ci-field"><label>ISR (%)</label><input class="ci-input" id="ci-isr" type="text" inputmode="decimal" value="30" maxlength="6" oninput="onCiChange()"></div>
+            <div class="ci-field"><label>PTU (%)</label><input class="ci-input" id="ci-ptu" type="text" inputmode="decimal" value="10" maxlength="6" oninput="onCiChange()"></div>
             <div class="ci-result-box"><span class="ci-result-label">% Utilidad neta</span><span class="ci-result-val" id="ci-util-neta">10.00%</span></div>
           </div>
           <div style="margin-top:10px;font-size:11px;color:var(--ink-3)">Fórmula: Up% ÷ [1 − (PTU% + ISR%)] · Base = CD + CI + Financiamiento</div>
@@ -1668,7 +1668,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
         <div class="ci-section-head"><span class="ci-section-num">IMP</span><span class="ci-section-title">Imprevistos</span><span class="ci-section-total" id="ci-t-imp">$0.00</span></div>
         <div class="ci-body">
           <div style="display:flex;align-items:center;gap:12px">
-            <input class="ci-input" id="ci-imp-sync" type="number" min="0" max="30" step="0.5" value="5" style="width:80px" oninput="onCiImpChange()">
+            <input class="ci-input" id="ci-imp-sync" type="text" inputmode="decimal" value="5" maxlength="6" style="width:80px" oninput="onCiImpChange()">
             <span style="font-size:12px;color:var(--ink-3)">% sobre costo directo</span>
             <span class="ci-result-val" id="ci-imp-amt" style="font-size:14px;color:var(--ink)">$0.00</span>
           </div>
@@ -6529,8 +6529,8 @@ function renderIndirectos() {
   if (bodyCampo) {
     bodyCampo.innerHTML = ci.staffCampo.map((p, i) => `<tr>
       <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCampo[${i}].cat=this.value; save()"></td>
-      <td><input class="ci-input" type="number" min="0" max="10" step="0.25" value="${p.qty}" oninput="STATE.ci.staffCampo[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
-      <td><input class="ci-input" type="number" min="0" step="100" value="${p.sal}" oninput="STATE.ci.staffCampo[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
+      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="STATE.ci.staffCampo[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
+      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="STATE.ci.staffCampo[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
       <td class="ci-imp">${fmt(p.qty * p.sal * meses)}</td>
       <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCampo(${i})">×</button></td>
     </tr>`).join('');
@@ -6546,8 +6546,8 @@ function renderIndirectos() {
   if (bodyCentral) {
     bodyCentral.innerHTML = ci.staffCentral.map((p, i) => `<tr>
       <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCentral[${i}].cat=this.value; save()"></td>
-      <td><input class="ci-input" type="number" min="0" max="10" step="0.25" value="${p.qty}" oninput="STATE.ci.staffCentral[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
-      <td><input class="ci-input" type="number" min="0" step="100" value="${p.sal}" oninput="STATE.ci.staffCentral[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
+      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="STATE.ci.staffCentral[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
+      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="STATE.ci.staffCentral[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
       <td class="ci-imp">${fmt(p.qty * p.sal * meses)}</td>
       <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCentral(${i})">×</button></td>
     </tr>`).join('');
@@ -6565,7 +6565,7 @@ function renderIndirectos() {
         <td class="ci-td-ctrl">
           <button class="ci-mode-btn ${modo==='%'?'active':''}" onclick="ciToggleCentralMode(${i},'%')">%</button>
           <button class="ci-mode-btn ${modo==='$'?'active':''}" onclick="ciToggleCentralMode(${i},'$')">$</button>
-          <input class="ci-input" type="number" min="0" step="${modo==='$'?100:0.05}" value="${p.val}" oninput="STATE.ci.porcCentral[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
+          <input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.val}" oninput="STATE.ci.porcCentral[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
         </td>
         <td class="ci-imp">${fmt(imp)}</td>
         <td><button class="ci-del-btn" onclick="ciRemovePorcCentral(${i})">×</button></td>
@@ -6583,7 +6583,7 @@ function renderIndirectos() {
         <td class="ci-td-ctrl">
           <button class="ci-mode-btn ${modo==='%'?'active':''}" onclick="ciToggleCampoMode(${i},'%')">%</button>
           <button class="ci-mode-btn ${modo==='$'?'active':''}" onclick="ciToggleCampoMode(${i},'$')">$</button>
-          <input class="ci-input" type="number" min="0" step="${modo==='$'?100:0.05}" value="${p.val}" oninput="STATE.ci.porcCampo[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
+          <input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.val}" oninput="STATE.ci.porcCampo[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
         </td>
         <td class="ci-imp">${fmt(imp)}</td>
         <td><button class="ci-del-btn" onclick="ciRemovePorcCampo(${i})">×</button></td>
