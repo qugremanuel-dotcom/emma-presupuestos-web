@@ -5289,8 +5289,9 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
           const pUnit = part.u || pd[1] || '';
           const pCost = part.cs != null ? part.cs : (pd[2] || 0);
           const pAmt  = round2((part.i || 0) * mult);
-          // Cantidad escalada: importe / P.U. (funciona para op * y /)
-          const pQ    = pCost > 0 ? round2(pAmt / pCost) : round2(Number(part.q || 0) * mult);
+          // Cantidad por unidad del básico (sin escalar): permite verificar IVA como basic_qty × Σ(pQ × pCost)
+          const pQ    = Number(part.q || 0);
+          const pOp   = part.op || '*';
           const tCls  = TCLS[part.t] || '';
           html += `<tr class="basico-sub-row">
             <td class="descr" style="padding-left:1.6em">
@@ -5298,7 +5299,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
             </td>
             <td class="center">${esc(pUnit)}</td>
             <td class="num">${money(pCost)}</td>
-            <td class="center">*</td>
+            <td class="center">${esc(pOp)}</td>
             <td class="num">${q6(pQ)}</td>
             <td class="num">${money(pAmt)}</td>
             <td class="num pc ${part.t === 'M' ? 'sub-m-pc' : ''}">${part.t === 'M' ? pct(cd > 0 ? pAmt / cd * 100 : 0) : ''}</td>
