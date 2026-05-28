@@ -5202,15 +5202,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
 
   function buildInsumoSection(insumos, types, secLabel, cd, cuadrillaMap) {
     const rows = insumos.filter(i => types.includes(i.t));
-    // IVA mode + MATERIALES: subtotal = mat. directos + sub-partes M de cada básico
-    const isIvaMat = format === 'iva' && types.includes('B');
-    const subtot = isIvaMat
-      ? rows.reduce((s, i) => {
-          if (i.t === 'M') return s + (i.i || 0);
-          if (i.t === 'B') return s + computeBasicoMatMonto(i);
-          return s;
-        }, 0)
-      : rows.reduce((s, i) => s + (i.i || 0), 0);
+    const subtot = rows.reduce((s, i) => s + (i.i || 0), 0);
     if (!rows.length && subtot === 0) {
       return `
         <tr class="sec-head"><td colspan="7" class="sec-label">${secLabel}</td></tr>
@@ -5222,82 +5214,102 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
     }
     let html = `<tr class="sec-head"><td colspan="7" class="sec-label">${secLabel}</td></tr>`;
     rows.forEach(i => {
-      if (isIvaMat && i.t === 'B') {
-        // ── Básico expandido (modo IVA): mostrar referencia + sub-partes M ──
-        const dict = I_DICT[i.cod] || [i.c || '', i.u || '', 0];
-        const bDesc = i.c || dict[0] || '';
-        const bUnit = i.u || dict[1] || '';
-        const bCost = i.cs ?? dict[2] ?? 0;
-        // Fila de referencia (tachada — su importe total no va al subtotal)
-        html += `<tr class="ins-row basico-ref-row">
-          <td class="descr"><span class="basico-ref-lbl">BÁSICO</span>${esc(bDesc)}</td>
-          <td class="center">${esc(bUnit)}</td>
-          <td class="num">${money(bCost)}</td>
-          <td class="center">${esc(i.op || '*')}</td>
-          <td class="num">${q6(i.q || 0)}</td>
-          <td class="num">${money(i.i || 0)}</td>
-          <td class="num pc">${pct(cd > 0 ? (i.i || 0) / cd * 100 : 0)}</td>
-        </tr>`;
-        // Sub-partes M del básico (estas sí se IVAn)
-        const bParts = I_BREAKDOWN[i.cod];
-        if (bParts && bParts.length) {
-          const mult = crewConceptMultiplier(i);
-          bParts.filter(p => p.t === 'M').forEach(part => {
-            const pd   = I_DICT[part.cod] || ['', '', 0];
-            const pAmt = round2((part.i || 0) * mult);
-            const pQ   = round2(Number(part.q || 0) * mult);
-            html += `<tr class="basico-mat-sub">
-              <td class="descr" style="padding-left:1.6em">↳ ${esc(part.c || pd[0] || part.cod)}</td>
-              <td class="center">${esc(part.u || pd[1] || '')}</td>
-              <td class="num">${money(part.cs != null ? part.cs : (pd[2] || 0))}</td>
-              <td class="center">*</td>
-              <td class="num">${q6(pQ)}</td>
-              <td class="num">${money(pAmt)}</td>
-              <td class="num pc">${pct(cd > 0 ? pAmt / cd * 100 : 0)}</td>
-            </tr>`;
-          });
-        }
-      } else {
-        // ── Insumo normal (M, O, E) o básico sin expansión (formatos no-IVA) ──
-        const workerCode = isFasarWorkerCode(i.cod);
-        const dict = workerCode ? (getWorkerDictEntry(i.cod)||['','',0]) : (I_DICT[i.cod]||[i.c||'',i.u||'',i.cs||0]);
-        const desc = cuadrillaLabel(i, cuadrillaMap) || i.c || dict[0] || '';
-        const unit = i.u || dict[1] || '';
-        const cost = i.cs ?? dict[2] ?? 0;
-        const rowPct = cd > 0 ? (i.i||0)/cd*100 : 0;
-        html += `<tr class="ins-row">
-          <td class="descr">${esc(desc)}</td>
-          <td class="center">${esc(unit)}</td>
-          <td class="num">${money(cost)}</td>
-          <td class="center">${esc(i.op||'*')}</td>
-          <td class="num">${q6(i.q||0)}</td>
-          <td class="num">${money(i.i||0)}</td>
-          <td class="num pc">${pct(rowPct)}</td>
-        </tr>`;
-        // Cuadrilla breakdown (MO básicos)
-        const crewParts = getCrewParts(i.cod);
-        if (crewParts?.length) {
-          const mult = crewConceptMultiplier(i);
-          crewParts.forEach(part => {
-            const wk = getWorkerDictEntry(part.cod)||['','JOR',0];
-            const qc = Number(part.q||0)*mult;
-            html += `<tr class="crew-row">
-              <td class="crew-desc"><em>${esc(wk[0]||'')}</em></td>
-              <td class="center">${esc(wk[1]||'JOR')}</td>
-              <td class="num">${money(wk[2]||0)}</td>
-              <td class="center">*</td>
-              <td class="num">${q6(qc)}</td>
-              <td class="num">${money(qc*(wk[2]||0))}</td>
-              <td class="num pc"></td>
-            </tr>`;
-          });
-        }
+      const workerCode = isFasarWorkerCode(i.cod);
+      const dict = workerCode ? (getWorkerDictEntry(i.cod)||['','',0]) : (I_DICT[i.cod]||[i.c||'',i.u||'',i.cs||0]);
+      const desc = cuadrillaLabel(i, cuadrillaMap) || i.c || dict[0] || '';
+      const unit = i.u || dict[1] || '';
+      const cost = i.cs ?? dict[2] ?? 0;
+      const rowPct = cd > 0 ? (i.i||0)/cd*100 : 0;
+      html += `<tr class="ins-row">
+        <td class="descr">${esc(desc)}</td>
+        <td class="center">${esc(unit)}</td>
+        <td class="num">${money(cost)}</td>
+        <td class="center">${esc(i.op||'*')}</td>
+        <td class="num">${q6(i.q||0)}</td>
+        <td class="num">${money(i.i||0)}</td>
+        <td class="num pc">${pct(rowPct)}</td>
+      </tr>`;
+      // Cuadrilla breakdown (MO básicos)
+      const crewParts = getCrewParts(i.cod);
+      if (crewParts?.length) {
+        const mult = crewConceptMultiplier(i);
+        crewParts.forEach(part => {
+          const wk = getWorkerDictEntry(part.cod)||['','JOR',0];
+          const qc = Number(part.q||0)*mult;
+          html += `<tr class="crew-row">
+            <td class="crew-desc"><em>${esc(wk[0]||'')}</em></td>
+            <td class="center">${esc(wk[1]||'JOR')}</td>
+            <td class="num">${money(wk[2]||0)}</td>
+            <td class="center">*</td>
+            <td class="num">${q6(qc)}</td>
+            <td class="num">${money(qc*(wk[2]||0))}</td>
+            <td class="num pc"></td>
+          </tr>`;
+        });
       }
     });
     html += `<tr class="subtot-row">
       <td colspan="5" class="subtot-label">SUBTOTAL ${secLabel}</td>
       <td class="num">${money(subtot)}</td>
       <td class="num pc">${pct(cd>0?subtot/cd*100:0)}</td>
+    </tr>`;
+    return html;
+  }
+
+  // ── Sección BÁSICOS DE OBRA ────────────────────────────────────────────────
+  function buildBasicosSection(insumos, cd) {
+    const basics = insumos.filter(i => i.t === 'B');
+    if (!basics.length) return '';
+    const subtot = basics.reduce((s, i) => s + (i.i || 0), 0);
+    const TCLS  = { M: 'tipo-m', O: 'tipo-o', E: 'tipo-e' };
+    let html = `<tr class="sec-head basicos-sec-head"><td colspan="7" class="sec-label">BÁSICOS DE OBRA</td></tr>`;
+    basics.forEach(b => {
+      const dict  = I_DICT[b.cod] || [b.c || '', b.u || '', 0];
+      const bDesc = b.c || dict[0] || '';
+      const bUnit = b.u || dict[1] || '';
+      const bCost = b.cs ?? dict[2] ?? 0;
+      const rowPct = cd > 0 ? (b.i || 0) / cd * 100 : 0;
+      // Fila principal del básico
+      html += `<tr class="ins-row basico-main-row">
+        <td class="descr"><strong>${esc(bDesc)}</strong></td>
+        <td class="center">${esc(bUnit)}</td>
+        <td class="num">${money(bCost)}</td>
+        <td class="center">${esc(b.op || '*')}</td>
+        <td class="num">${q6(b.q || 0)}</td>
+        <td class="num">${money(b.i || 0)}</td>
+        <td class="num pc">${pct(rowPct)}</td>
+      </tr>`;
+      // Sub-partes completas del básico (M, O, E)
+      const parts = I_BREAKDOWN[b.cod];
+      if (parts && parts.length) {
+        const mult = crewConceptMultiplier(b);
+        parts.forEach(part => {
+          const pd    = I_DICT[part.cod] || ['', '', 0];
+          const pDesc = part.c || pd[0] || part.cod;
+          const pUnit = part.u || pd[1] || '';
+          const pCost = part.cs != null ? part.cs : (pd[2] || 0);
+          const pAmt  = round2((part.i || 0) * mult);
+          // Cantidad escalada: importe / P.U. (funciona para op * y /)
+          const pQ    = pCost > 0 ? round2(pAmt / pCost) : round2(Number(part.q || 0) * mult);
+          const tCls  = TCLS[part.t] || '';
+          html += `<tr class="basico-sub-row">
+            <td class="descr" style="padding-left:1.6em">
+              <span class="tipo-tag ${tCls}">${part.t || '?'}</span>${esc(pDesc)}
+            </td>
+            <td class="center">${esc(pUnit)}</td>
+            <td class="num">${money(pCost)}</td>
+            <td class="center">*</td>
+            <td class="num">${q6(pQ)}</td>
+            <td class="num">${money(pAmt)}</td>
+            <td class="num pc ${part.t === 'M' ? 'sub-m-pc' : ''}">${part.t === 'M' ? pct(cd > 0 ? pAmt / cd * 100 : 0) : ''}</td>
+          </tr>`;
+        });
+      }
+    });
+    html += `<tr class="subtot-row">
+      <td colspan="5" class="subtot-label">SUBTOTAL BÁSICOS DE OBRA</td>
+      <td class="num">${money(subtot)}</td>
+      <td class="num pc">${pct(cd > 0 ? subtot / cd * 100 : 0)}</td>
     </tr>`;
     return html;
   }
@@ -5405,7 +5417,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         <td></td>
       </tr>`;
       html += `<tr class="pie-row">
-        <td colspan="3">IVA EN MATERIALES</td>
+        <td colspan="3">IVA EN MATERIALES <span style="font-size:7.5px;color:#888">(mat. directos + M en básicos)</span></td>
         <td class="center pie-rate">16% × ${money(matAmt)}</td>
         <td></td>
         <td class="num pie-amt">${money(iva)}</td>
@@ -5465,11 +5477,12 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
       }
       const importe   = pu * qtyVal;
 
-      const cuadrillaMap = buildCuadrillaLetterMap(insumos);
-      const matHtml = buildInsumoSection(insumos, ['M','B'], 'MATERIALES', cd, cuadrillaMap);
-      const moHtml  = buildInsumoSection(insumos, ['O'],     'MANO DE OBRA', cd, cuadrillaMap);
-      const eqHtml  = buildInsumoSection(insumos, ['E'],     'EQUIPO Y HERRAMIENTA', cd, cuadrillaMap);
-      const pieHtml = buildPieDeIndirectos(cd, matAmt);
+      const cuadrillaMap  = buildCuadrillaLetterMap(insumos);
+      const matHtml      = buildInsumoSection(insumos, ['M'], 'MATERIALES',          cd, cuadrillaMap);
+      const moHtml       = buildInsumoSection(insumos, ['O'], 'MANO DE OBRA',        cd, cuadrillaMap);
+      const eqHtml       = buildInsumoSection(insumos, ['E'], 'EQUIPO Y HERRAMIENTA',cd, cuadrillaMap);
+      const basicosHtml  = buildBasicosSection(insumos, cd);
+      const pieHtml      = buildPieDeIndirectos(cd, matAmt);
 
       return `<section class="concept-card">
         <div class="concept-head">
@@ -5503,6 +5516,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
             ${matHtml}
             ${moHtml}
             ${eqHtml}
+            ${basicosHtml}
             ${pieHtml}
           </tbody>
         </table>
@@ -5602,15 +5616,21 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
   .crew-row td.crew-desc em { font-style: normal; color: #5A5347; }
   .crew-row td.num { text-align: right; font-family: Consolas, monospace; }
   .crew-row td.center { text-align: center; }
-  /* Básico expandido IVA: fila de referencia del básico */
-  .basico-ref-row td { background: #EDF2F7; border-bottom: 1px dashed #B8C8D4; padding: 4px 6px; font-size: 8.5px; color: #4A5568; }
-  .basico-ref-row td.num { text-align: right; font-family: Consolas, monospace; text-decoration: line-through; color: #8899A8; }
-  .basico-ref-row td.pc { text-align: right; color: #8899A8; font-size: 8px; }
-  .basico-ref-lbl { background: #2D6A4F; color: #FFF; font-size: 7px; font-weight: 800; padding: 1px 4px; border-radius: 2px; margin-right: 4px; letter-spacing: .04em; }
-  /* Sub-insumos M del básico (afectan IVA) */
-  .basico-mat-sub td { background: #F0FAF4; border-bottom: 1px dotted #B8DCC8; padding: 3px 6px; font-size: 8.5px; color: #1A4A2E; }
-  .basico-mat-sub td.num { text-align: right; font-family: Consolas, monospace; }
-  .basico-mat-sub td.pc { text-align: right; color: #4A8A6A; font-size: 8px; }
+  /* ── Sección BÁSICOS DE OBRA ─────────────────────────────── */
+  .basicos-sec-head td { background: #4A3728 !important; }
+  /* Fila principal del básico */
+  .basico-main-row td { background: #FAF6F0; border-bottom: 1px solid #DDD0C0; padding: 4px 6px; font-size: 8.5px; }
+  .basico-main-row td.num { text-align: right; font-family: Consolas, monospace; }
+  .basico-main-row td.pc { text-align: right; color: #756C5E; font-size: 8px; }
+  /* Sub-filas del básico (M, O, E) */
+  .basico-sub-row td { background: #FBF8F4; border-bottom: 1px dotted #D5C8B8; padding: 3px 6px; font-size: 8.5px; color: #3A3530; }
+  .basico-sub-row td.num { text-align: right; font-family: Consolas, monospace; }
+  .basico-sub-row .sub-m-pc { text-align: right; color: #1A6B3C; font-size: 8px; font-weight: 700; }
+  /* Tipo tags M / O / E */
+  .tipo-tag { display: inline-block; font-size: 7px; font-weight: 800; padding: 1px 4px; border-radius: 3px; margin-right: 4px; letter-spacing: .04em; }
+  .tipo-m { background: #DBEAFE; color: #1565C0; }
+  .tipo-o { background: #F3E8FF; color: #6A1B9A; }
+  .tipo-e { background: #FFF3E0; color: #C06000; }
   /* Subtotal rows */
   .subtot-row td { background: #EEEADE; padding: 4px 7px; font-size: 8.5px; border-bottom: 1px solid #C8C0B0; }
   .subtot-row td.subtot-label { font-weight: 800; text-transform: uppercase; color: #3A3530; letter-spacing: .07em; }
