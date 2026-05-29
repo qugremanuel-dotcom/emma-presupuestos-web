@@ -1603,9 +1603,9 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
             <div>
               <div class="ci-col-head">Personal de Oficina de Campo</div>
               <table class="ci-staff" id="ci-staff-campo">
-                <thead><tr><th>Categoría</th><th class="r" style="width:52px">Cant.</th><th class="r" style="width:100px">Salario/mes</th><th class="r" style="width:90px">Importe</th><th style="width:24px"></th></tr></thead>
+                <thead><tr><th>Categoría</th><th class="r" style="width:52px">Cant.</th><th class="r" style="width:100px">Salario/mes</th><th class="r" style="width:90px">Importe</th><th class="r" style="width:60px">% CD</th><th style="width:24px"></th></tr></thead>
                 <tbody id="ci-staff-campo-body"></tbody>
-                <tfoot><tr><td colspan="3" style="padding:6px;font-size:11px;color:var(--ink-3)">Incluye prestaciones</td><td class="ci-imp" style="font-weight:700;padding:6px" id="ci-staff-campo-total">$0.00</td><td></td></tr></tfoot>
+                <tfoot><tr><td colspan="3" style="padding:6px;font-size:11px;color:var(--ink-3)">Incluye prestaciones</td><td class="ci-imp" style="font-weight:700;padding:6px" id="ci-staff-campo-total">$0.00</td><td class="ci-imp" style="font-size:10px;color:var(--ink-3);padding:6px" id="ci-staff-campo-total-porc"></td><td></td></tr></tfoot>
               </table>
               <button class="ci-add-btn" onclick="ciAddStaffCampo()">+ Agregar categoría</button>
               <div style="margin-top:10px">
@@ -1620,9 +1620,9 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
             <div>
               <div class="ci-col-head">Personal de Oficina Central</div>
               <table class="ci-staff" id="ci-staff-central">
-                <thead><tr><th>Categoría</th><th class="r" style="width:52px">Cant.</th><th class="r" style="width:100px">Salario/mes</th><th class="r" style="width:90px">Importe</th><th style="width:24px"></th></tr></thead>
+                <thead><tr><th>Categoría</th><th class="r" style="width:52px">Cant.</th><th class="r" style="width:100px">Salario/mes</th><th class="r" style="width:90px">Importe</th><th class="r" style="width:60px">% CD</th><th style="width:24px"></th></tr></thead>
                 <tbody id="ci-staff-central-body"></tbody>
-                <tfoot><tr><td colspan="3" style="padding:6px;font-size:11px;color:var(--ink-3)">Incluye prestaciones</td><td class="ci-imp" style="font-weight:700;padding:6px" id="ci-staff-central-total">$0.00</td><td></td></tr></tfoot>
+                <tfoot><tr><td colspan="3" style="padding:6px;font-size:11px;color:var(--ink-3)">Incluye prestaciones</td><td class="ci-imp" style="font-weight:700;padding:6px" id="ci-staff-central-total">$0.00</td><td class="ci-imp" style="font-size:10px;color:var(--ink-3);padding:6px" id="ci-staff-central-total-porc"></td><td></td></tr></tfoot>
               </table>
               <button class="ci-add-btn" onclick="ciAddStaffCentral()">+ Agregar categoría</button>
             </div>
@@ -1637,12 +1637,12 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
           <div class="ci-grid-2">
             <div>
               <div class="ci-col-head">Oficina Central</div>
-              <table class="ci-porc"><thead><tr><th>Concepto</th><th class="r" style="width:100px">% / Monto</th><th class="r" style="width:90px">Importe</th><th style="width:24px"></th></tr></thead><tbody id="ci-porc-central-body"></tbody></table>
+              <table class="ci-porc"><thead><tr><th>Concepto</th><th class="r" style="width:68px">%</th><th class="r" style="width:95px">$ Importe</th><th style="width:24px"></th></tr></thead><tbody id="ci-porc-central-body"></tbody></table>
               <button class="ci-add-btn" onclick="ciAddPorcCentral()">+ Agregar concepto</button>
             </div>
             <div>
               <div class="ci-col-head">Oficina de Campo</div>
-              <table class="ci-porc"><thead><tr><th>Concepto</th><th class="r" style="width:100px">% / Monto</th><th class="r" style="width:90px">Importe</th><th style="width:24px"></th></tr></thead><tbody id="ci-porc-campo-body"></tbody></table>
+              <table class="ci-porc"><thead><tr><th>Concepto</th><th class="r" style="width:68px">%</th><th class="r" style="width:95px">$ Importe</th><th style="width:24px"></th></tr></thead><tbody id="ci-porc-campo-body"></tbody></table>
               <button class="ci-add-btn" onclick="ciAddPorcCampo()">+ Agregar concepto</button>
             </div>
           </div>
@@ -2562,6 +2562,8 @@ function highlight(text, q) {
 }
 const round2 = n => Math.round((+n) * 100) / 100;
 const round6 = n => Math.round((+n) * 1000000) / 1000000;
+const round4 = n => Math.round((+n) * 10000)   / 10000;
+let _ciSurgical = false;   // prevents renderIndirectos() during surgical CI updates
 
 // Convierte número a letras en español (para precio con letra en PDF)
 function numToLetras(n) {
@@ -4450,7 +4452,7 @@ function recalcTotals() {
     }).join('');
     partidaBox.innerHTML = rows ? `<h5>Importe por partida</h5>${rows}` : '';
   }
-  if (activeView === 'indirectos') renderIndirectos();
+  if (activeView === 'indirectos' && !_ciSurgical) renderIndirectos();
 }
 
 function calcularPresupuesto(showToast = true) {
@@ -6494,6 +6496,118 @@ function printBasicos() {
 // ========================================================
 // COSTOS INDIRECTOS — CÁLCULO
 // ========================================================
+
+// Actualiza SOLO los displays del CI sin reconstruir las tablas
+function updateCIDisplays(cd) {
+  const ci  = STATE.ci;
+  const meses = ci.duracionDias / 30;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const active = document.activeElement;
+
+  // Filas de staff campo
+  ci.staffCampo.forEach((p, i) => {
+    const imp = p.qty * p.sal * meses;
+    set(`ci-sc-${i}-imp`,  fmt(imp));
+    set(`ci-sc-${i}-porc`, cd > 0 ? round4(imp / cd * 100).toFixed(4) + '%' : '—');
+  });
+  const campoStaffTotal = ci.staffCampo.reduce((s, p) => s + p.qty * p.sal * meses, 0);
+  set('ci-staff-campo-total', fmt(campoStaffTotal));
+  set('ci-staff-campo-total-porc', cd > 0 ? round4(campoStaffTotal / cd * 100).toFixed(4) + '%' : '');
+
+  // Filas de staff central
+  ci.staffCentral.forEach((p, i) => {
+    const imp = p.qty * p.sal * meses;
+    set(`ci-ss-${i}-imp`,  fmt(imp));
+    set(`ci-ss-${i}-porc`, cd > 0 ? round4(imp / cd * 100).toFixed(4) + '%' : '—');
+  });
+  const centralStaffTotal = ci.staffCentral.reduce((s, p) => s + p.qty * p.sal * meses, 0);
+  set('ci-staff-central-total', fmt(centralStaffTotal));
+  set('ci-staff-central-total-porc', cd > 0 ? round4(centralStaffTotal / cd * 100).toFixed(4) + '%' : '');
+
+  // Viáticos
+  set('ci-viaticos-amt', fmt(cd * ci.viaticosPorc / 100));
+
+  // Inputs de filas porc (sólo si no están enfocados)
+  ci.porcCentral.forEach((p, i) => {
+    const modo = p.mode || '%';
+    const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
+    const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
+    const pEl = document.getElementById(`ci-pc-${i}-porc`);
+    const mEl = document.getElementById(`ci-pc-${i}-monto`);
+    if (pEl && active !== pEl) pEl.value = porcVal;
+    if (mEl && active !== mEl) mEl.value = montoVal;
+  });
+  ci.porcCampo.forEach((p, i) => {
+    const modo = p.mode || '%';
+    const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
+    const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
+    const pEl = document.getElementById(`ci-pf-${i}-porc`);
+    const mEl = document.getElementById(`ci-pf-${i}-monto`);
+    if (pEl && active !== pEl) pEl.value = porcVal;
+    if (mEl && active !== mEl) mEl.value = montoVal;
+  });
+
+  // Totales de secciones
+  const t1 = campoStaffTotal + cd * ci.viaticosPorc / 100 + centralStaffTotal;
+  const t2to9 = ci.porcCampo.reduce((s, p)   => s + ((p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100), 0)
+              + ci.porcCentral.reduce((s, p) => s + ((p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100), 0);
+  set('ci-t1',    fmt(t1));
+  set('ci-t2to9', fmt(t2to9));
+
+  // Resumen general
+  set('ci-s-central',   fmt(ci.montoCentral));
+  set('ci-s-campo',     fmt(ci.montoCampo));
+  set('ci-s-total',     fmt(ci.montoTotal));
+  set('ci-s-central-p', ci.porcTotalCentral.toFixed(4) + '%');
+  set('ci-s-campo-p',   ci.porcTotalCampo.toFixed(4)   + '%');
+  set('ci-s-total-p',   ci.porcTotal.toFixed(4)         + '%');
+  set('ci-util-neta', ci.utilNetPorc.toFixed(4) + '%');
+  set('ci-t-util',    fmt(ci.utilAmt));
+  set('ci-imp-amt',   fmt(cd * STATE.imprevistos / 100));
+  set('ci-t-imp',     fmt(cd * STATE.imprevistos / 100));
+}
+
+// Edición quirúrgica de una celda de staff (qty o sal)
+function onCiStaffInput(type, idx, field) {
+  const arr = type === 'campo' ? STATE.ci.staffCampo : STATE.ci.staffCentral;
+  const pfx = type === 'campo' ? 'ci-sc' : 'ci-ss';
+  const el  = document.getElementById(`${pfx}-${idx}-${field}`);
+  if (!el || !arr[idx]) return;
+  arr[idx][field] = parseFloat(el.value) || 0;
+  let cd = 0;
+  PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(r => { cd += (r.p || 0) * r.qty; }));
+  recalcCI(cd);
+  updateCIDisplays(cd);
+  _ciSurgical = true; recalcTotals(); _ciSurgical = false;
+  save();
+}
+
+// Edición quirúrgica de % o $ en filas de porcentajes
+function onCiPorcInput(type, idx, field) {
+  const arr = type === 'c' ? STATE.ci.porcCentral : STATE.ci.porcCampo;
+  const pfx = type === 'c' ? 'ci-pc' : 'ci-pf';
+  const item = arr[idx];
+  const pEl = document.getElementById(`${pfx}-${idx}-porc`);
+  const mEl = document.getElementById(`${pfx}-${idx}-monto`);
+  let cd = 0;
+  PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(r => { cd += (r.p || 0) * r.qty; }));
+  if (field === 'porc') {
+    const pval = parseFloat(pEl?.value) || 0;
+    item.val = pval; item.mode = '%';
+    const monto = round2(cd * pval / 100);
+    if (mEl && document.activeElement !== mEl) mEl.value = monto;
+  } else {
+    const mval = parseFloat(mEl?.value) || 0;
+    item.val = mval; item.mode = '$';
+    const porc = cd > 0 ? round4(mval / cd * 100) : 0;
+    if (pEl && document.activeElement !== pEl) pEl.value = porc;
+  }
+  recalcCI(cd);
+  updateCIDisplays(cd);
+  _ciSurgical = true; recalcTotals(); _ciSurgical = false;
+  save();
+}
+
 function recalcCI(cd) {
   const ci = STATE.ci;
   const meses = ci.duracionDias / 30;
@@ -6527,13 +6641,18 @@ function renderIndirectos() {
 
   const bodyCampo = document.getElementById('ci-staff-campo-body');
   if (bodyCampo) {
-    bodyCampo.innerHTML = ci.staffCampo.map((p, i) => `<tr>
-      <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCampo[${i}].cat=this.value; save()"></td>
-      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="STATE.ci.staffCampo[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
-      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="STATE.ci.staffCampo[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
-      <td class="ci-imp">${fmt(p.qty * p.sal * meses)}</td>
-      <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCampo(${i})">×</button></td>
-    </tr>`).join('');
+    bodyCampo.innerHTML = ci.staffCampo.map((p, i) => {
+      const imp  = p.qty * p.sal * meses;
+      const porc = cd > 0 ? round4(imp / cd * 100).toFixed(4) + '%' : '—';
+      return `<tr>
+        <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCampo[${i}].cat=this.value; save()"></td>
+        <td><input id="ci-sc-${i}-qty" class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="onCiStaffInput('campo',${i},'qty')" style="width:52px"></td>
+        <td><input id="ci-sc-${i}-sal" class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="onCiStaffInput('campo',${i},'sal')" style="width:100px"></td>
+        <td class="ci-imp" id="ci-sc-${i}-imp">${fmt(imp)}</td>
+        <td class="ci-imp" id="ci-sc-${i}-porc" style="font-size:10px;color:var(--ink-3)">${porc}</td>
+        <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCampo(${i})">×</button></td>
+      </tr>`;
+    }).join('');
   }
   const elSCT = document.getElementById('ci-staff-campo-total');
   if (elSCT) elSCT.textContent = fmt(ci.staffCampo.reduce((s, p) => s + p.qty * p.sal * meses, 0));
@@ -6544,13 +6663,18 @@ function renderIndirectos() {
 
   const bodyCentral = document.getElementById('ci-staff-central-body');
   if (bodyCentral) {
-    bodyCentral.innerHTML = ci.staffCentral.map((p, i) => `<tr>
-      <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCentral[${i}].cat=this.value; save()"></td>
-      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="STATE.ci.staffCentral[${i}].qty=parseFloat(this.value)||0; onCiChange()" style="width:52px"></td>
-      <td><input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="STATE.ci.staffCentral[${i}].sal=parseFloat(this.value)||0; onCiChange()" style="width:100px"></td>
-      <td class="ci-imp">${fmt(p.qty * p.sal * meses)}</td>
-      <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCentral(${i})">×</button></td>
-    </tr>`).join('');
+    bodyCentral.innerHTML = ci.staffCentral.map((p, i) => {
+      const imp  = p.qty * p.sal * meses;
+      const porc = cd > 0 ? round4(imp / cd * 100).toFixed(4) + '%' : '—';
+      return `<tr>
+        <td class="ci-td-cat"><input class="ci-cat-input" type="text" value="${escHtml(p.cat)}" oninput="STATE.ci.staffCentral[${i}].cat=this.value; save()"></td>
+        <td><input id="ci-ss-${i}-qty" class="ci-input" type="text" inputmode="decimal" maxlength="6" value="${p.qty}" oninput="onCiStaffInput('central',${i},'qty')" style="width:52px"></td>
+        <td><input id="ci-ss-${i}-sal" class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.sal}" oninput="onCiStaffInput('central',${i},'sal')" style="width:100px"></td>
+        <td class="ci-imp" id="ci-ss-${i}-imp">${fmt(imp)}</td>
+        <td class="ci-imp" id="ci-ss-${i}-porc" style="font-size:10px;color:var(--ink-3)">${porc}</td>
+        <td><button class="ci-del-btn" title="Eliminar" onclick="ciRemoveStaffCentral(${i})">×</button></td>
+      </tr>`;
+    }).join('');
   }
   const elSCeT = document.getElementById('ci-staff-central-total');
   if (elSCeT) elSCeT.textContent = fmt(ci.staffCentral.reduce((s, p) => s + p.qty * p.sal * meses, 0));
@@ -6558,16 +6682,13 @@ function renderIndirectos() {
   const bodyPC = document.getElementById('ci-porc-central-body');
   if (bodyPC) {
     bodyPC.innerHTML = ci.porcCentral.map((p, i) => {
-      const modo = p.mode || '%';
-      const imp  = modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100;
+      const modo     = p.mode || '%';
+      const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
+      const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
       return `<tr>
         <td class="ci-td-cat ci-porc-desc"><input class="ci-cat-input" type="text" value="${escHtml(p.desc)}" oninput="STATE.ci.porcCentral[${i}].desc=this.value; save()"> <span class="ci-porc-side">${escHtml(p.sec)}</span></td>
-        <td class="ci-td-ctrl">
-          <button class="ci-mode-btn ${modo==='%'?'active':''}" onclick="ciToggleCentralMode(${i},'%')">%</button>
-          <button class="ci-mode-btn ${modo==='$'?'active':''}" onclick="ciToggleCentralMode(${i},'$')">$</button>
-          <input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.val}" oninput="STATE.ci.porcCentral[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
-        </td>
-        <td class="ci-imp">${fmt(imp)}</td>
+        <td style="text-align:right;padding:4px 6px"><input id="ci-pc-${i}-porc" class="ci-input" type="text" inputmode="decimal" maxlength="8" value="${porcVal}" style="width:60px" oninput="onCiPorcInput('c',${i},'porc')"></td>
+        <td style="text-align:right;padding:4px 6px"><input id="ci-pc-${i}-monto" class="ci-input" type="text" inputmode="decimal" maxlength="12" value="${montoVal}" style="width:88px" oninput="onCiPorcInput('c',${i},'monto')"></td>
         <td><button class="ci-del-btn" onclick="ciRemovePorcCentral(${i})">×</button></td>
       </tr>`;
     }).join('');
@@ -6576,16 +6697,13 @@ function renderIndirectos() {
   const bodyPF = document.getElementById('ci-porc-campo-body');
   if (bodyPF) {
     bodyPF.innerHTML = ci.porcCampo.map((p, i) => {
-      const modo = p.mode || '%';
-      const imp  = modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100;
+      const modo     = p.mode || '%';
+      const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
+      const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
       return `<tr>
         <td class="ci-td-cat ci-porc-desc"><input class="ci-cat-input" type="text" value="${escHtml(p.desc)}" oninput="STATE.ci.porcCampo[${i}].desc=this.value; save()"> <span class="ci-porc-side">${escHtml(p.sec)}</span></td>
-        <td class="ci-td-ctrl">
-          <button class="ci-mode-btn ${modo==='%'?'active':''}" onclick="ciToggleCampoMode(${i},'%')">%</button>
-          <button class="ci-mode-btn ${modo==='$'?'active':''}" onclick="ciToggleCampoMode(${i},'$')">$</button>
-          <input class="ci-input" type="text" inputmode="decimal" maxlength="10" value="${p.val}" oninput="STATE.ci.porcCampo[${i}].val=parseFloat(this.value)||0; onCiChange()" style="width:72px;margin-top:3px">
-        </td>
-        <td class="ci-imp">${fmt(imp)}</td>
+        <td style="text-align:right;padding:4px 6px"><input id="ci-pf-${i}-porc" class="ci-input" type="text" inputmode="decimal" maxlength="8" value="${porcVal}" style="width:60px" oninput="onCiPorcInput('f',${i},'porc')"></td>
+        <td style="text-align:right;padding:4px 6px"><input id="ci-pf-${i}-monto" class="ci-input" type="text" inputmode="decimal" maxlength="12" value="${montoVal}" style="width:88px" oninput="onCiPorcInput('f',${i},'monto')"></td>
         <td><button class="ci-del-btn" onclick="ciRemovePorcCampo(${i})">×</button></td>
       </tr>`;
     }).join('');
