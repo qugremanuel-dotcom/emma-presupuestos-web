@@ -1511,34 +1511,34 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       <div class="fasar-grid">
         <div class="fasar-card">
           <h4>Valores base</h4>
-          <div class="fasar-field"><label>Año</label><input type="number" id="fasar-year" min="2020" max="2100" step="1"></div>
+          <div class="fasar-field"><label>Año</label><input type="text" inputmode="decimal" id="fasar-year" maxlength="4"></div>
           <div class="fasar-field"><label>Zona</label><select id="fasar-zone"><option value="general">General</option><option value="frontera">Frontera norte</option></select></div>
-          <div class="fasar-field"><label>UMA diaria</label><input type="number" id="fasar-uma" min="0" step="0.01"></div>
-          <div class="fasar-field"><label>Salario minimo general</label><input type="number" id="fasar-smg" min="0" step="0.01"></div>
-          <div class="fasar-field"><label>Salario minimo frontera</label><input type="number" id="fasar-smf" min="0" step="0.01"></div>
+          <div class="fasar-field"><label>UMA diaria</label><input type="text" inputmode="decimal" id="fasar-uma" maxlength="10"></div>
+          <div class="fasar-field"><label>Salario minimo general</label><input type="text" inputmode="decimal" id="fasar-smg" maxlength="10"></div>
+          <div class="fasar-field"><label>Salario minimo frontera</label><input type="text" inputmode="decimal" id="fasar-smf" maxlength="10"></div>
         </div>
 
         <div class="fasar-card">
           <h4>Dias no laborados</h4>
-          <div class="fasar-field"><label>Dias calendario</label><input type="number" id="fasar-dcal" min="1" step="1"></div>
-          <div class="fasar-field"><label>Domingos</label><input type="number" id="fasar-dom" min="0" step="1"></div>
-          <div class="fasar-field"><label>Vacaciones</label><input type="number" id="fasar-vac" min="0" step="1"></div>
-          <div class="fasar-field"><label>Lunes</label><input type="number" id="fasar-lun" min="0" step="1"></div>
-          <div class="fasar-field"><label>Festivos ley</label><input type="number" id="fasar-fest" min="0" step="1"></div>
-          <div class="fasar-field"><label>Clima / lluvia</label><input type="number" id="fasar-clima" min="0" step="1"></div>
-          <div class="fasar-field"><label>Costumbre</label><input type="number" id="fasar-costumbre" min="0" step="1"></div>
-          <div class="fasar-field"><label>Permisos / enfermedad</label><input type="number" id="fasar-permisos" min="0" step="1"></div>
-          <div class="fasar-field"><label>Sindicato</label><input type="number" id="fasar-sindicato" min="0" step="1"></div>
+          <div class="fasar-field"><label>Dias calendario</label><input type="text" inputmode="decimal" id="fasar-dcal" maxlength="6"></div>
+          <div class="fasar-field"><label>Domingos</label><input type="text" inputmode="decimal" id="fasar-dom" maxlength="4"></div>
+          <div class="fasar-field"><label>Vacaciones</label><input type="text" inputmode="decimal" id="fasar-vac" maxlength="4"></div>
+          <div class="fasar-field"><label>Lunes</label><input type="text" inputmode="decimal" id="fasar-lun" maxlength="4"></div>
+          <div class="fasar-field"><label>Festivos ley</label><input type="text" inputmode="decimal" id="fasar-fest" maxlength="4"></div>
+          <div class="fasar-field"><label>Clima / lluvia</label><input type="text" inputmode="decimal" id="fasar-clima" maxlength="4"></div>
+          <div class="fasar-field"><label>Costumbre</label><input type="text" inputmode="decimal" id="fasar-costumbre" maxlength="4"></div>
+          <div class="fasar-field"><label>Permisos / enfermedad</label><input type="text" inputmode="decimal" id="fasar-permisos" maxlength="4"></div>
+          <div class="fasar-field"><label>Sindicato</label><input type="text" inputmode="decimal" id="fasar-sindicato" maxlength="4"></div>
         </div>
 
         <div class="fasar-card">
           <h4>Prestaciones LFT</h4>
-          <div class="fasar-field"><label>Aguinaldo dias</label><input type="number" id="fasar-aguinaldo" min="0" step="0.01"></div>
-          <div class="fasar-field"><label>Prima vacacional</label><input type="number" id="fasar-prima-vac" min="0" step="0.01"></div>
-          <div class="fasar-field"><label>Prima dominical dias</label><input type="number" id="fasar-prima-dom" min="0" step="0.01"></div>
-          <div class="fasar-field"><label>Otros cargos</label><input type="number" id="fasar-otros" min="0" step="0.0001"></div>
-          <div class="fasar-field"><label>Impuesto nomina</label><input type="number" id="fasar-isn" min="0" step="0.0001"></div>
-          <div class="fasar-field"><label>Riesgo trabajo</label><input type="number" id="fasar-riesgo" min="0" step="0.000001"></div>
+          <div class="fasar-field"><label>Aguinaldo dias</label><input type="text" inputmode="decimal" id="fasar-aguinaldo" maxlength="8"></div>
+          <div class="fasar-field"><label>Prima vacacional</label><input type="text" inputmode="decimal" id="fasar-prima-vac" maxlength="8"></div>
+          <div class="fasar-field"><label>Prima dominical dias</label><input type="text" inputmode="decimal" id="fasar-prima-dom" maxlength="8"></div>
+          <div class="fasar-field"><label>Otros cargos</label><input type="text" inputmode="decimal" id="fasar-otros" maxlength="10"></div>
+          <div class="fasar-field"><label>Impuesto nomina</label><input type="text" inputmode="decimal" id="fasar-isn" maxlength="10"></div>
+          <div class="fasar-field"><label>Riesgo trabajo</label><input type="text" inputmode="decimal" id="fasar-riesgo" maxlength="12"></div>
         </div>
 
       </div>
@@ -2842,7 +2842,7 @@ function renderFasarLaborTable(f = STATE.fasar) {
       <td class="fasar-labor-num">1</td>
       <td>${escHtml(entry[1] || 'JOR')}</td>
       <td style="padding:4px 8px">
-        <input type="number" class="fasar-sal-input" min="0" step="0.01"
+        <input type="text" inputmode="decimal" class="fasar-sal-input" maxlength="10"
                value="${round2(salarioBase).toFixed(2)}"
                oninput="onFasarSalInput(this,'${safeKey}')">
       </td>
