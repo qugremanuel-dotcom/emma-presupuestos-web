@@ -2869,6 +2869,19 @@ function onFasarSalInput(el, cod) {
     if (tds[5]) tds[5].textContent = round6(calc.fsr).toFixed(6);
     if (tds[6]) tds[6].innerHTML = `<strong>${fmt(calc.salarioReal)}</strong>`;
   }
+  // Propagar al presupuesto con debounce — igual que "Actualizar MO del presupuesto"
+  // pero sin leer los inputs del form (STATE.fasar ya está actualizado)
+  clearTimeout(onFasarSalInput._tm);
+  onFasarSalInput._tm = setTimeout(() => {
+    STATE.fasar.applied = true;
+    STATE.fasar.lastAppliedAt = new Date().toLocaleString('es-MX');
+    applyFasarDictionaryPrices();                                          // actualiza I_DICT
+    PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(recalcRowFromCurrentInsumos)); // recomputa renglones
+    renderFasarSummary();
+    calcularPresupuesto(false);
+    save();
+    toast('Salario de MO actualizado en presupuesto');
+  }, 800);
 }
 
 function applyFasarDictionaryPrices() {
