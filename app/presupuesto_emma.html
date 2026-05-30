@@ -2096,7 +2096,7 @@ const DEFAULT_FASAR = {
   primaVacacional: 0.25,
   primaDominicalDias: 0,
   otrosCargos: 0,
-  isn: 0.04,
+  isn: 0,      // ISN varía por estado (0% a 4.5%) — el usuario configura su tasa
   riesgoTrabajo: 0.075887,
   cuotaFija: 0.204,
   excedenteTresUma: 0.015,
@@ -2888,12 +2888,13 @@ function onFasarSalInput(el, cod) {
 
 function applyFasarDictionaryPrices() {
   ensureFasarBaseCosts();
-  const base = STATE.fasar.baseCosts || {};
+  const f    = normalizeFasar(STATE.fasar);   // siempre normalizado — igual que el display
+  const base = f.baseCosts || {};
   Object.entries(base).forEach(([cod, cost]) => {
     const entry = getWorkerDictEntry(cod);
     if (!entry) return;
     if (isFasarWorkerCode(cod)) {
-      entry[2] = STATE.fasar.applied ? round2(calcFasarForSalary(cost, STATE.fasar).salarioReal) : round2(cost);
+      entry[2] = f.applied ? round2(calcFasarForSalary(cost, f).salarioReal) : round2(cost);
       setWorkerDictEntry(cod, entry);
     } else {
       entry[2] = round2(cost);
