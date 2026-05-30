@@ -2703,6 +2703,8 @@ function getFasarInputs() {
 function bindFasar() {
   document.querySelectorAll('#fasarView input, #fasarView select').forEach(el => {
     el.addEventListener('input', () => {
+      // No reconstruir si el foco está en un input de salario (fasar-sal-input)
+      if (document.activeElement && document.activeElement.classList.contains('fasar-sal-input')) return;
       STATE.fasar = getFasarInputs();
       renderFasarSummary();
       save();
