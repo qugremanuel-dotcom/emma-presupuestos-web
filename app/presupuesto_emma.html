@@ -6529,28 +6529,22 @@ function updateCIDisplays(cd) {
 
   // Inputs de filas porc (sólo si no están enfocados)
   ci.porcCentral.forEach((p, i) => {
-    const modo = p.mode || '%';
-    const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
-    const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
     const pEl = document.getElementById(`ci-pc-${i}-porc`);
     const mEl = document.getElementById(`ci-pc-${i}-monto`);
-    if (pEl && active !== pEl) pEl.value = porcVal;
-    if (mEl && active !== mEl) mEl.value = montoVal;
+    if (pEl && active !== pEl) pEl.value = p.val || 0;
+    if (mEl && active !== mEl) mEl.value = round2(cd * (p.val || 0) / 100);
   });
   ci.porcCampo.forEach((p, i) => {
-    const modo = p.mode || '%';
-    const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
-    const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
     const pEl = document.getElementById(`ci-pf-${i}-porc`);
     const mEl = document.getElementById(`ci-pf-${i}-monto`);
-    if (pEl && active !== pEl) pEl.value = porcVal;
-    if (mEl && active !== mEl) mEl.value = montoVal;
+    if (pEl && active !== pEl) pEl.value = p.val || 0;
+    if (mEl && active !== mEl) mEl.value = round2(cd * (p.val || 0) / 100);
   });
 
   // Totales de secciones
   const t1 = campoStaffTotal + cd * ci.viaticosPorc / 100 + centralStaffTotal;
-  const t2to9 = ci.porcCampo.reduce((s, p)   => s + ((p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100), 0)
-              + ci.porcCentral.reduce((s, p) => s + ((p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100), 0);
+  const t2to9 = ci.porcCampo.reduce((s, p)   => s + cd * (p.val || 0) / 100, 0)
+              + ci.porcCentral.reduce((s, p) => s + cd * (p.val || 0) / 100, 0);
   set('ci-t1',    fmt(t1));
   set('ci-t2to9', fmt(t2to9));
 
@@ -6591,15 +6585,15 @@ function onCiPorcInput(type, idx, field) {
   const mEl = document.getElementById(`${pfx}-${idx}-monto`);
   let cd = 0;
   PARTIDAS.forEach(([l]) => STATE.rows[l].forEach(r => { cd += (r.p || 0) * r.qty; }));
+  // Siempre almacenar como %. Si el usuario tipea $, se convierte a % del CD actual.
   if (field === 'porc') {
     const pval = parseFloat(pEl?.value) || 0;
     item.val = pval; item.mode = '%';
-    const monto = round2(cd * pval / 100);
-    if (mEl && document.activeElement !== mEl) mEl.value = monto;
+    if (mEl && document.activeElement !== mEl) mEl.value = round2(cd * pval / 100);
   } else {
     const mval = parseFloat(mEl?.value) || 0;
-    item.val = mval; item.mode = '$';
     const porc = cd > 0 ? round4(mval / cd * 100) : 0;
+    item.val = porc; item.mode = '%';          // ← siempre %
     if (pEl && document.activeElement !== pEl) pEl.value = porc;
   }
   recalcCI(cd);
@@ -6616,8 +6610,14 @@ function recalcCI(cd) {
   let montoCampo      = staffCampoAmt + viaticosAmt;
   let staffCentralAmt = ci.staffCentral.reduce((s, p) => s + p.qty * p.sal * meses, 0);
   let montoCentral    = staffCentralAmt;
-  ci.porcCentral.forEach(p => { montoCentral += (p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100; });
-  ci.porcCampo.forEach(p =>   { montoCampo   += (p.mode === '$') ? (p.val || 0) : cd * (p.val || 0) / 100; });
+  // Migrar items viejos con mode='$' a mode='%' (evita factores desorbitados al cambiar CD)
+  if (cd > 0) {
+    [...ci.porcCentral, ...ci.porcCampo].forEach(p => {
+      if (p.mode === '$') { p.val = round4((p.val || 0) / cd * 100); p.mode = '%'; }
+    });
+  }
+  ci.porcCentral.forEach(p => { montoCentral += cd * (p.val || 0) / 100; });
+  ci.porcCampo.forEach(p =>   { montoCampo   += cd * (p.val || 0) / 100; });
   const montoTotal = montoCentral + montoCampo;
   ci.montoCentral = montoCentral; ci.montoCampo = montoCampo; ci.montoTotal = montoTotal;
   ci.porcTotalCentral = cd > 0 ? (montoCentral / cd) * 100 : 0;
@@ -6682,9 +6682,8 @@ function renderIndirectos() {
   const bodyPC = document.getElementById('ci-porc-central-body');
   if (bodyPC) {
     bodyPC.innerHTML = ci.porcCentral.map((p, i) => {
-      const modo     = p.mode || '%';
-      const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
-      const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
+      const porcVal  = p.val || 0;
+      const montoVal = round2(cd * porcVal / 100);
       return `<tr>
         <td class="ci-td-cat ci-porc-desc"><input class="ci-cat-input" type="text" value="${escHtml(p.desc)}" oninput="STATE.ci.porcCentral[${i}].desc=this.value; save()"> <span class="ci-porc-side">${escHtml(p.sec)}</span></td>
         <td style="text-align:right;padding:4px 6px"><input id="ci-pc-${i}-porc" class="ci-input" type="text" inputmode="decimal" maxlength="8" value="${porcVal}" style="width:60px" oninput="onCiPorcInput('c',${i},'porc')"></td>
@@ -6697,9 +6696,8 @@ function renderIndirectos() {
   const bodyPF = document.getElementById('ci-porc-campo-body');
   if (bodyPF) {
     bodyPF.innerHTML = ci.porcCampo.map((p, i) => {
-      const modo     = p.mode || '%';
-      const porcVal  = modo === '%' ? (p.val || 0) : (cd > 0 ? round4((p.val || 0) / cd * 100) : 0);
-      const montoVal = round2(modo === '$' ? (p.val || 0) : cd * (p.val || 0) / 100);
+      const porcVal  = p.val || 0;
+      const montoVal = round2(cd * porcVal / 100);
       return `<tr>
         <td class="ci-td-cat ci-porc-desc"><input class="ci-cat-input" type="text" value="${escHtml(p.desc)}" oninput="STATE.ci.porcCampo[${i}].desc=this.value; save()"> <span class="ci-porc-side">${escHtml(p.sec)}</span></td>
         <td style="text-align:right;padding:4px 6px"><input id="ci-pf-${i}-porc" class="ci-input" type="text" inputmode="decimal" maxlength="8" value="${porcVal}" style="width:60px" oninput="onCiPorcInput('f',${i},'porc')"></td>
