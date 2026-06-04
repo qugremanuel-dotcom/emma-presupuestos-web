@@ -39,6 +39,22 @@
     .partidas { display:grid; gap:8px; margin-top:22px; }
     .partida { padding:12px; border:1px solid var(--line); border-radius:7px; background:#fff; font-size:13px; font-weight:800; }
     .partida.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+    /* Galeria de logos */
+    .logo-block { margin-top:22px; }
+    .logo-block > label { display:block; margin-bottom:8px; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; }
+    .logo-gallery { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .logo-opt { display:grid; place-items:center; height:50px; padding:6px; border:1px solid var(--line); border-radius:7px; background:#fff; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+    .logo-opt:hover { border-color:var(--gold); }
+    .logo-opt.active { border-color:var(--gold-dark); box-shadow:0 0 0 2px rgba(199,154,67,.35); }
+    .logo-opt svg, .logo-opt img { max-width:100%; max-height:38px; }
+    .logo-opt.none { font-size:11px; font-weight:800; color:var(--muted); }
+    .logo-upload { margin-top:8px; }
+    .logo-upload label { display:inline-flex; align-items:center; justify-content:center; width:100%; min-height:38px; border:1px dashed var(--line); border-radius:7px; background:#fff; color:var(--muted); font-size:12px; font-weight:800; cursor:pointer; }
+    .logo-upload input { display:none; }
+    .head-logo { display:flex; align-items:center; gap:14px; }
+    .head-logo .logo-box { display:grid; place-items:center; height:54px; min-width:54px; max-width:160px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+    .head-logo .logo-box svg, .head-logo .logo-box img { max-height:42px; max-width:140px; }
+    .head-logo .logo-box.empty { color:var(--muted); font-size:11px; font-weight:800; border-style:dashed; }
     .workspace { padding:24px; overflow:auto; }
     .workspace-head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:18px; }
     h1 { margin:0; font-size:28px; line-height:1.1; }
@@ -81,8 +97,10 @@
         text-align:center; line-height:1.6;
       }
       .pdf-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #17191f; padding-bottom:12px; margin-bottom:14px; }
-      .pdf-brand { font-size:20px; font-weight:900; }
+      .pdf-brand { display:flex; align-items:center; gap:12px; font-size:20px; font-weight:900; }
       .pdf-brand small { display:block; font-size:11px; font-weight:700; color:#8b6424; letter-spacing:1px; margin-top:2px; }
+      .pdf-logo { display:inline-grid; place-items:center; max-height:46px; }
+      .pdf-logo svg, .pdf-logo img { max-height:46px; max-width:170px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .pdf-meta { font-size:11px; text-align:right; line-height:1.6; color:#333; }
       .pdf-title { font-size:15px; font-weight:800; margin:0 0 4px; }
       .pdf-fields { font-size:11px; color:#333; margin-bottom:14px; line-height:1.7; }
@@ -117,14 +135,27 @@
         <div class="field"><label>Cliente</label><input id="f-cli" value="Cliente Residencial"></div>
         <div class="field"><label>Obra</label><input id="f-obr" value="Remodelacion casa habitacion"></div>
         <div class="field"><label>Ubicacion</label><input id="f-ubi" value="Cancun, Q. Roo"></div>
+
+        <div class="logo-block">
+          <label>Logo de la empresa</label>
+          <div class="logo-gallery" id="logo-gallery"></div>
+          <div class="logo-upload">
+            <label for="logo-file">Subir mi propio logo (PNG/JPG)</label>
+            <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml" onchange="uploadLogo(event)">
+          </div>
+        </div>
+
         <div class="partidas" id="partida-list"></div>
       </aside>
 
       <section class="workspace">
         <div class="workspace-head">
-          <div>
-            <h1>Presupuesto ejemplo para demo</h1>
-            <div class="sub">10 conceptos de 5 partidas distintas. Cambia cantidades y observa como se actualiza el total.</div>
+          <div class="head-logo">
+            <div class="logo-box empty" id="head-logo">SIN LOGO</div>
+            <div>
+              <h1>Presupuesto ejemplo para demo</h1>
+              <div class="sub">10 conceptos de 5 partidas distintas. Cambia cantidades y observa como se actualiza el total.</div>
+            </div>
           </div>
           <div class="concept-tools">
             <button class="btn" onclick="shuffleConcepts()">Barajar conceptos</button>
@@ -203,6 +234,67 @@
         ['Canalizacion con tuberia conduit pared delgada de 13 mm','ML',140,42.80],
       ],
     };
+
+    // ===== Galeria de logos de muestra (marcas ficticias, SVG) =====
+    // Son logos genericos de ejemplo para que el usuario visualice como se ve
+    // un logo en su presupuesto. No son marcas reales.
+    const LOGOS = [
+      { name:'Constructora Alfa', svg:`<svg viewBox="0 0 150 44" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="6" width="32" height="32" rx="6" fill="#c79a43"/><path d="M10 30 L18 14 L26 30 M13 25 H23" stroke="#151009" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="42" y="22" font-family="Inter,Arial" font-size="13" font-weight="800" fill="#17191f">CONSTRUCTORA</text><text x="42" y="36" font-family="Inter,Arial" font-size="13" font-weight="800" fill="#c79a43">ALFA</text></svg>` },
+      { name:'Edifica', svg:`<svg viewBox="0 0 150 44" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="10" width="9" height="28" fill="#225d8f"/><rect x="15" y="4" width="9" height="34" fill="#225d8f"/><rect x="27" y="16" width="9" height="22" fill="#225d8f"/><text x="44" y="29" font-family="Inter,Arial" font-size="17" font-weight="800" fill="#17191f">EDIFICA</text></svg>` },
+      { name:'Grupo Vertice', svg:`<svg viewBox="0 0 150 44" xmlns="http://www.w3.org/2000/svg"><path d="M19 6 L34 36 H4 Z" fill="none" stroke="#bd5636" stroke-width="3" stroke-linejoin="round"/><circle cx="19" cy="26" r="4" fill="#bd5636"/><text x="44" y="20" font-family="Inter,Arial" font-size="11" font-weight="800" fill="#626978">GRUPO</text><text x="44" y="35" font-family="Inter,Arial" font-size="15" font-weight="800" fill="#17191f">VERTICE</text></svg>` },
+      { name:'Obra Maestra', svg:`<svg viewBox="0 0 150 44" xmlns="http://www.w3.org/2000/svg"><path d="M19 4 L33 12 V30 L19 38 L5 30 V12 Z" fill="#186b55"/><path d="M13 22 L18 27 L27 16" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="43" y="20" font-family="Inter,Arial" font-size="13" font-weight="800" fill="#17191f">OBRA</text><text x="43" y="35" font-family="Inter,Arial" font-size="13" font-weight="800" fill="#186b55">MAESTRA</text></svg>` },
+      { name:'Ingenia', svg:`<svg viewBox="0 0 150 44" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="22" r="16" fill="#17191f"/><text x="20" y="28" font-family="Inter,Arial" font-size="18" font-weight="900" fill="#c79a43" text-anchor="middle">i</text><text x="42" y="29" font-family="Inter,Arial" font-size="17" font-weight="800" fill="#17191f">INGEN</text><text x="103" y="29" font-family="Inter,Arial" font-size="17" font-weight="800" fill="#c79a43">IA</text></svg>` },
+    ];
+
+    // Logo seleccionado: null | {type:'svg', svg} | {type:'img', src}
+    let selectedLogo = null;
+
+    function renderLogoGallery() {
+      const g = document.getElementById('logo-gallery');
+      const none = `<div class="logo-opt none${selectedLogo===null?' active':''}" title="Sin logo" onclick="selectLogo(-1)">SIN<br>LOGO</div>`;
+      const opts = LOGOS.map((l, i) =>
+        `<div class="logo-opt${selectedLogo&&selectedLogo.idx===i?' active':''}" title="${l.name}" onclick="selectLogo(${i})">${l.svg}</div>`
+      ).join('');
+      g.innerHTML = none + opts;
+    }
+
+    function logoMarkup() {
+      if (!selectedLogo) return '';
+      return selectedLogo.type === 'svg' ? selectedLogo.svg : `<img src="${selectedLogo.src}" alt="logo">`;
+    }
+
+    function renderHeadLogo() {
+      const box = document.getElementById('head-logo');
+      if (!selectedLogo) { box.className = 'logo-box empty'; box.textContent = 'SIN LOGO'; }
+      else { box.className = 'logo-box'; box.innerHTML = logoMarkup(); }
+    }
+
+    function selectLogo(i) {
+      if (i < 0) selectedLogo = null;
+      else selectedLogo = { type:'svg', idx:i, svg:LOGOS[i].svg };
+      renderLogoGallery();
+      renderHeadLogo();
+      document.getElementById('toast').textContent = selectedLogo
+        ? 'Logo aplicado. Aparecera en tu PDF exportado.'
+        : 'Presupuesto sin logo.';
+    }
+
+    function uploadLogo(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        document.getElementById('toast').textContent = 'El logo debe pesar menos de 2 MB.';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        selectedLogo = { type:'img', idx:null, src:e.target.result };
+        renderLogoGallery();
+        renderHeadLogo();
+        document.getElementById('toast').textContent = 'Tu logo se aplico. Aparecera en el PDF exportado.';
+      };
+      reader.readAsDataURL(file);
+    }
 
     let rows = [];
 
@@ -290,8 +382,8 @@
       document.getElementById('print-area').innerHTML = `
         <div class="pdf-watermark">EMMA · DEMO<br>emma-presupuestos.com</div>
         <div class="pdf-head">
-          <div class="pdf-brand">EMMA PRESUPUESTOS<small>CATALOGO DE CONCEPTOS</small></div>
-          <div class="pdf-meta"><b>Fecha:</b> ${hoy}<br>emma-presupuestos.com</div>
+          <div class="pdf-brand">${selectedLogo ? `<span class="pdf-logo">${logoMarkup()}</span>` : ''}<div>${emp}<small>CATALOGO DE CONCEPTOS</small></div></div>
+          <div class="pdf-meta"><b>Fecha:</b> ${hoy}<br>Generado con Emma · emma-presupuestos.com</div>
         </div>
         <div class="pdf-title">${obr}</div>
         <div class="pdf-fields">
@@ -322,6 +414,8 @@
 
     // Init
     renderPartidaList();
+    renderLogoGallery();
+    renderHeadLogo();
     rows = pickRandom();
     recalc();
   </script>
