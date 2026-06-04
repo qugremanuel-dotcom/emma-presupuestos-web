@@ -330,10 +330,29 @@
           <td class="part">${r.part.split(' - ')[0]}</td>
           <td>${r.concept}</td>
           <td>${r.unit}</td>
-          <td class="money"><input type="number" min="0" step="1" value="${r.qty}" oninput="rows[${i}].qty=parseFloat(this.value)||0; recalc()"></td>
+          <td class="money"><input type="number" inputmode="decimal" min="0" step="any" value="${r.qty}" oninput="onQty(${i}, this.value)"></td>
           <td class="money">${fmt(r.pu)}</td>
-          <td class="money">${fmt(r.qty * r.pu)}</td>
+          <td class="money" id="imp-${i}">${fmt(r.qty * r.pu)}</td>
         </tr>`).join('');
+    }
+
+    // Actualiza solo el importe de la fila y los totales, SIN redibujar la tabla
+    // (asi el campo conserva el foco y se puede escribir con el teclado).
+    function onQty(i, val) {
+      rows[i].qty = parseFloat(val) || 0;
+      const cell = document.getElementById('imp-' + i);
+      if (cell) cell.textContent = fmt(rows[i].qty * rows[i].pu);
+      updateTotals();
+    }
+
+    function updateTotals() {
+      const t = totals();
+      document.getElementById('m-concepts').textContent = rows.length;
+      document.getElementById('m-direct').textContent = fmt(t.direct);
+      document.getElementById('m-indirect').textContent = fmt(t.indirect);
+      document.getElementById('m-risk').textContent = fmt(t.risk);
+      document.getElementById('m-profit').textContent = fmt(t.profit);
+      document.getElementById('m-total').textContent = fmt(t.total);
     }
 
     function totals() {
@@ -347,13 +366,7 @@
 
     function recalc() {
       renderRows();
-      const t = totals();
-      document.getElementById('m-concepts').textContent = rows.length;
-      document.getElementById('m-direct').textContent = fmt(t.direct);
-      document.getElementById('m-indirect').textContent = fmt(t.indirect);
-      document.getElementById('m-risk').textContent = fmt(t.risk);
-      document.getElementById('m-profit').textContent = fmt(t.profit);
-      document.getElementById('m-total').textContent = fmt(t.total);
+      updateTotals();
     }
 
     function fakeExport(type) {
