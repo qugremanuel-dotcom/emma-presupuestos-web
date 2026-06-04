@@ -80,43 +80,6 @@
     .script { margin-top:20px; padding:16px; border:1px solid #bad7cb; border-radius:8px; background:#ebf6f1; color:#164d3f; font-size:13px; line-height:1.5; }
     @media (max-width:1050px) { main { grid-template-columns:1fr; } aside,.summary { border:0; border-bottom:1px solid var(--line); } .workspace-head { flex-direction:column; } .concept-tools { justify-content:flex-start; } }
     @media (max-width:620px) { header,.workspace,aside,.summary { padding:18px; } table { min-width:760px; } .actions { display:none; } }
-
-    /* ===== Area de impresion / PDF (oculta en pantalla) ===== */
-    #print-area { display:none; }
-    @media print {
-      .shell { display:none !important; }
-      #print-area { display:block !important; position:relative; padding:0; color:#000; }
-      @page { size:A4 portrait; margin:16mm 14mm; }
-      body { background:#fff; }
-      .pdf-watermark {
-        position:fixed; top:0; left:0; width:100%; height:100%;
-        display:flex; align-items:center; justify-content:center;
-        transform:rotate(-32deg); transform-origin:center;
-        font-size:62px; font-weight:900; letter-spacing:6px;
-        color:rgba(199,154,67,0.16); z-index:9999; pointer-events:none;
-        text-align:center; line-height:1.6;
-      }
-      .pdf-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #17191f; padding-bottom:12px; margin-bottom:14px; }
-      .pdf-brand { display:flex; align-items:center; gap:12px; font-size:20px; font-weight:900; }
-      .pdf-brand small { display:block; font-size:11px; font-weight:700; color:#8b6424; letter-spacing:1px; margin-top:2px; }
-      .pdf-logo { display:inline-grid; place-items:center; max-height:46px; }
-      .pdf-logo svg, .pdf-logo img { max-height:46px; max-width:170px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      .pdf-meta { font-size:11px; text-align:right; line-height:1.6; color:#333; }
-      .pdf-title { font-size:15px; font-weight:800; margin:0 0 4px; }
-      .pdf-fields { font-size:11px; color:#333; margin-bottom:14px; line-height:1.7; }
-      .pdf-fields b { color:#000; }
-      table.pdf-table { width:100%; border-collapse:collapse; font-size:10.5px; }
-      table.pdf-table th, table.pdf-table td { border:1px solid #b9bdc7; padding:6px 7px; text-align:left; }
-      table.pdf-table th { background:#ece9e1 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-size:9.5px; text-transform:uppercase; }
-      table.pdf-table td.n { text-align:center; width:34px; }
-      table.pdf-table td.r, table.pdf-table th.r { text-align:right; white-space:nowrap; }
-      .pdf-totals { margin-top:14px; width:54%; margin-left:46%; font-size:11px; }
-      .pdf-totals .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #d8dce6; }
-      .pdf-totals .grand { margin-top:6px; padding:9px 11px; background:#17191f !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; color:#fff; display:flex; justify-content:space-between; font-weight:900; font-size:13px; border-radius:4px; }
-      .pdf-totals .grand b { color:#c79a43; }
-      .pdf-foot { margin-top:22px; padding-top:10px; border-top:1px solid #b9bdc7; font-size:9.5px; color:#555; line-height:1.5; }
-      .pdf-foot b { color:#8b6424; }
-    }
   </style>
 </head>
 <body>
@@ -194,9 +157,6 @@
       </aside>
     </main>
   </div>
-
-  <!-- Area que solo aparece al imprimir / guardar PDF -->
-  <div id="print-area"></div>
 
   <script>
     const fmt = n => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -373,56 +333,148 @@
       document.getElementById('toast').textContent = type + ' disponible en Emma completa (sin marca de agua). Abre la app completa para probar la salida real.';
     }
 
-    // ===== Exportacion a PDF real, gratis, con marca de agua =====
+    // ===== Exportacion a PDF, gratis, con la MISMA presentacion de la version completa =====
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const svgSized = (svg, mw, mh) => svg.replace('<svg ', `<svg style="max-width:${mw}px;max-height:${mh}px;width:auto;height:auto" `);
+
+    // Logo para el PDF (caja con borde, igual que la version completa)
+    function logoMarkupPdf() {
+      if (!selectedLogo) return '';
+      const inner = selectedLogo.type === 'svg'
+        ? svgSized(selectedLogo.svg, 84, 50)
+        : `<img src="${selectedLogo.src}" style="max-height:50px;max-width:84px;object-fit:contain">`;
+      return `<div style="height:62px;width:96px;border:1px solid #D3D1C7;padding:6px;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${inner}</div>`;
+    }
+
     function exportPDF() {
-      const emp = document.getElementById('f-emp').value || '-';
-      const cli = document.getElementById('f-cli').value || '-';
-      const obr = document.getElementById('f-obr').value || '-';
-      const ubi = document.getElementById('f-ubi').value || '-';
+      const emp = document.getElementById('f-emp').value.trim();
+      const cli = document.getElementById('f-cli').value.trim();
+      const obr = document.getElementById('f-obr').value.trim();
+      const ubi = document.getElementById('f-ubi').value.trim();
       const t = totals();
-      const hoy = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' });
+      const stamp = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+      const fmtN = v => Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
-      const filas = rows.map((r, i) => `
-        <tr>
-          <td class="n">${i + 1}</td>
-          <td>${r.concept}</td>
-          <td>${r.unit}</td>
-          <td class="r">${r.qty.toLocaleString('es-MX')}</td>
-          <td class="r">${fmt(r.pu)}</td>
-          <td class="r">${fmt(r.qty * r.pu)}</td>
-        </tr>`).join('');
-
-      document.getElementById('print-area').innerHTML = `
-        <div class="pdf-watermark">EMMA · DEMO<br>emma-presupuestos.com</div>
-        <div class="pdf-head">
-          <div class="pdf-brand">${selectedLogo ? `<span class="pdf-logo">${logoMarkup()}</span>` : ''}<div>${emp}<small>CATALOGO DE CONCEPTOS</small></div></div>
-          <div class="pdf-meta"><b>Fecha:</b> ${hoy}<br>Generado con Emma · emma-presupuestos.com</div>
-        </div>
-        <div class="pdf-title">${obr}</div>
-        <div class="pdf-fields">
-          <b>Empresa:</b> ${emp} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Cliente:</b> ${cli} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Ubicacion:</b> ${ubi}
-        </div>
-        <table class="pdf-table">
-          <thead>
-            <tr><th class="n">#</th><th>Concepto</th><th>Unidad</th><th class="r">Cantidad</th><th class="r">P.U.</th><th class="r">Importe</th></tr>
-          </thead>
-          <tbody>${filas}</tbody>
-        </table>
-        <div class="pdf-totals">
-          <div class="row"><span>Costo directo</span><span>${fmt(t.direct)}</span></div>
-          <div class="row"><span>Indirectos 8.50%</span><span>${fmt(t.indirect)}</span></div>
-          <div class="row"><span>Imprevistos 5%</span><span>${fmt(t.risk)}</span></div>
-          <div class="row"><span>Utilidad 10%</span><span>${fmt(t.profit)}</span></div>
-          <div class="grand"><span>TOTAL GENERAL</span><b>${fmt(t.total)}</b></div>
-        </div>
-        <div class="pdf-foot">
-          Documento generado con la <b>versión demo gratuita</b> de Emma Presupuestos. Los precios son de referencia.
-          La versión completa (sin marca de agua) incluye búsqueda en 6,185 conceptos reales, desglose de insumos,
-          costos indirectos Art. 45 y exportación a Excel. Conoce más en <b>emma-presupuestos.com</b>
+      // Agrupa los conceptos por partida (mismo formato que la version completa)
+      const orden = Object.keys(POOL); // A, C, F, K, M
+      let globalNo = 0;
+      const conceptSections = orden.map(part => {
+        const items = rows.filter(r => r.part === part);
+        if (!items.length) return '';
+        const letter = part.split(' - ')[0];
+        const nombre = part.split(' - ')[1] || part;
+        let pTotal = 0;
+        const rowsHtml = items.map(r => {
+          globalNo++;
+          const lt = r.qty * r.pu; pTotal += lt;
+          return `<tr>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;vertical-align:top;width:34px">${globalNo}</td>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:justify;vertical-align:top;line-height:1.35">${esc(r.concept)}</td>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:center;vertical-align:top;width:50px">${esc(r.unit)}</td>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:60px">${r.qty}</td>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:90px">${fmtN(r.pu)}</td>
+            <td style="padding:4px 7px;border-bottom:1px solid #EEE8DD;font-size:10.5px;text-align:right;font-family:ui-monospace,monospace;vertical-align:top;width:100px">${fmtN(lt)}</td>
+          </tr>`;
+        }).join('');
+        return `
+        <div style="border:1px solid #D3D1C7;margin-top:10px;page-break-inside:avoid">
+          <div style="background:#1A1A1A;color:white;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+            <div><span style="border:1px solid #C8A96E;color:#C8A96E;padding:2px 7px;font-family:ui-monospace,monospace;font-size:11px;margin-right:10px">${letter}</span><strong style="font-family:'Playfair Display',Georgia,serif;font-size:12px">${esc(nombre)}</strong></div>
+            <div style="font-family:ui-monospace,monospace;color:#C8A96E;font-weight:600">${fmtN(pTotal)}</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:#EEEADE">
+              <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700;width:34px">No.</th>
+              <th style="padding:5px 7px;font-size:10px;text-align:left;font-weight:700">Descripción</th>
+              <th style="padding:5px 7px;font-size:10px;text-align:center;font-weight:700;width:50px">Unidad</th>
+              <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:60px">Cant.</th>
+              <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:90px">P.U.</th>
+              <th style="padding:5px 7px;font-size:10px;text-align:right;font-weight:700;width:100px">Importe</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
         </div>`;
+      }).join('');
 
-      document.getElementById('toast').textContent = 'Se abrió el diálogo de impresión. Elige "Guardar como PDF" para descargar tu catálogo (con marca de agua, sin costo).';
-      setTimeout(() => window.print(), 150);
+      const resumenPartidas = orden.map(part => {
+        const sub = rows.filter(r => r.part === part).reduce((s, r) => s + r.qty * r.pu, 0);
+        const letter = part.split(' - ')[0], nombre = part.split(' - ')[1] || part;
+        return sub > 0 ? `<div style="display:flex;justify-content:space-between;border-bottom:1px dotted #E5E3DA;padding:4px 0;font-size:11px"><span>${letter} · ${esc(nombre)}</span><span style="font-family:ui-monospace,monospace">${fmtN(sub)}</span></div>` : '';
+      }).join('');
+
+      const docHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Presupuesto de Obra · Emma (demo)</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  @page { size: letter portrait; margin: 14mm 12mm 22mm; @top-right { content: "Página " counter(page) " de " counter(pages); font-family: Arial,Helvetica,sans-serif; font-size: 9px; color: #888780; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#161514; background:#F8F5EE; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { max-width:1040px; margin:0 auto; background:white; min-height:100vh; padding:20px 24px 40px; position:relative; }
+  .doc-footer { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #D3D1C7; padding:9px 12mm; font-size:9.5px; color:#5F5E5A; }
+  .demo-wm { position:fixed; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; transform:rotate(-32deg); font-size:64px; font-weight:900; letter-spacing:6px; color:rgba(200,169,110,0.16); z-index:0; pointer-events:none; text-align:center; line-height:1.5; }
+  .page > * { position:relative; z-index:1; }
+  @media print { body { background:white; } .page { max-width:none; padding:0 0 40px; } }
+</style>
+</head>
+<body>
+<div class="demo-wm">EMMA · DEMO<br>emma-presupuestos.com</div>
+<div class="page">
+  <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
+    ${logoMarkupPdf()}
+    <div style="flex:1">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Presupuesto de Obra</div>
+      ${emp ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(emp)}</div>` : ''}
+      ${cli ? `<div style="font-size:10.5px">Cliente: ${esc(cli)}</div>` : ''}
+      ${obr ? `<div style="font-size:10.5px">Obra: ${esc(obr)}</div>` : ''}
+      ${ubi ? `<div style="font-size:10.5px">Ubicación: ${esc(ubi)}</div>` : ''}
+    </div>
+    <div style="text-align:right;font-size:10px;color:#5F5E5A">${esc(stamp)}</div>
+  </div>
+  ${conceptSections}
+  <div style="margin-top:20px;border:1px solid #D3D1C7">
+    <div style="background:#1A1A1A;color:#C8A96E;padding:9px 14px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700">Resumen general</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tbody>
+        <tr><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA"><strong>Costo directo</strong></td><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace"><strong>${fmtN(t.direct)}</strong></td></tr>
+        <tr><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA">Costos Indirectos (8.50%)</td><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmtN(t.indirect)}</td></tr>
+        <tr><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA">Imprevistos (5%)</td><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmtN(t.risk)}</td></tr>
+        <tr><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA">Utilidad (10%)</td><td style="padding:7px 12px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace">${fmtN(t.profit)}</td></tr>
+        <tr style="border-top:2px solid #C8A96E"><td style="padding:9px 12px;border-bottom:1px solid #E5E3DA"><strong>Total general</strong></td><td style="padding:9px 12px;border-bottom:1px solid #E5E3DA;text-align:right;font-family:ui-monospace,monospace;font-size:13px"><strong>${fmtN(t.total)}</strong></td></tr>
+        <tr><td style="padding:7px 12px;color:#1A6B3C">Total con IVA <span style="font-size:9px;color:#888780">(+ 16%)</span></td><td style="padding:7px 12px;text-align:right;font-family:ui-monospace,monospace;font-size:13px;color:#1A6B3C"><strong>${fmtN(t.total * 1.16)}</strong></td></tr>
+      </tbody>
+    </table>
+    <div style="border-top:1px solid #D3D1C7;padding:10px 12px">
+      <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-bottom:6px">Importe por partida</div>
+      ${resumenPartidas}
+    </div>
+  </div>
+</div>
+<div class="doc-footer">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>Responsable: ___________________________________<span style="margin-left:36px">Firma: __________________________________</span></div>
+    <div style="font-size:9px;color:#C8A96E;font-family:ui-monospace,monospace;letter-spacing:0.06em">Versión demo · Emma ${new Date().getFullYear()} · emma-presupuestos.com</div>
+  </div>
+</div>
+</body>
+</html>`;
+
+      // Abre en ventana nueva e imprime (igual que la version completa). Si el popup esta bloqueado, descarga el HTML.
+      const win = window.open('', '_blank');
+      if (!win) {
+        const blob = new Blob([docHtml], { type:'text/html;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'presupuesto_demo_emma.html';
+        document.body.appendChild(a); a.click(); a.remove();
+        document.getElementById('toast').textContent = 'Se descargó el HTML del presupuesto; ábrelo e imprime como PDF (con marca de agua, sin costo).';
+        return;
+      }
+      win.document.open(); win.document.write(docHtml); win.document.close(); win.focus();
+      setTimeout(() => win.print(), 350);
+      document.getElementById('toast').textContent = 'Se abrió el presupuesto con el formato de la versión completa. Elige "Guardar como PDF" (incluye marca de agua).';
     }
 
     // Init
