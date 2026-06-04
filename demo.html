@@ -28,6 +28,7 @@
       border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink); font-weight:800; cursor:pointer;
     }
     .btn.primary { background:var(--gold); border-color:var(--gold-dark); color:#151009; }
+    .btn.green { background:var(--green); border-color:#0f5743; color:#fff; }
     main { display:grid; grid-template-columns:280px 1fr 330px; gap:0; min-height:calc(100vh - 68px); }
     aside, .summary { background:#f2f3f4; border-right:1px solid var(--line); padding:22px; }
     .summary { border-right:0; border-left:1px solid var(--line); }
@@ -48,7 +49,8 @@
     th, td { padding:12px; border-bottom:1px solid var(--line); text-align:left; font-size:13px; vertical-align:top; }
     th { background:#f7f8f9; color:var(--muted); font-size:11px; text-transform:uppercase; }
     tbody tr:last-child td { border-bottom:0; }
-    td.code { color:var(--blue); font-weight:800; white-space:nowrap; }
+    td.num, th.num { text-align:center; width:48px; color:var(--muted); font-weight:800; white-space:nowrap; }
+    td.part { color:var(--blue); font-weight:700; white-space:nowrap; font-size:12px; }
     td.money, th.money { text-align:right; white-space:nowrap; font-weight:800; }
     td input { width:76px; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; text-align:right; }
     .summary h2 { margin:0 0 16px; font-size:20px; }
@@ -62,6 +64,41 @@
     .script { margin-top:20px; padding:16px; border:1px solid #bad7cb; border-radius:8px; background:#ebf6f1; color:#164d3f; font-size:13px; line-height:1.5; }
     @media (max-width:1050px) { main { grid-template-columns:1fr; } aside,.summary { border:0; border-bottom:1px solid var(--line); } .workspace-head { flex-direction:column; } .concept-tools { justify-content:flex-start; } }
     @media (max-width:620px) { header,.workspace,aside,.summary { padding:18px; } table { min-width:760px; } .actions { display:none; } }
+
+    /* ===== Area de impresion / PDF (oculta en pantalla) ===== */
+    #print-area { display:none; }
+    @media print {
+      .shell { display:none !important; }
+      #print-area { display:block !important; position:relative; padding:0; color:#000; }
+      @page { size:A4 portrait; margin:16mm 14mm; }
+      body { background:#fff; }
+      .pdf-watermark {
+        position:fixed; top:0; left:0; width:100%; height:100%;
+        display:flex; align-items:center; justify-content:center;
+        transform:rotate(-32deg); transform-origin:center;
+        font-size:62px; font-weight:900; letter-spacing:6px;
+        color:rgba(199,154,67,0.16); z-index:9999; pointer-events:none;
+        text-align:center; line-height:1.6;
+      }
+      .pdf-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #17191f; padding-bottom:12px; margin-bottom:14px; }
+      .pdf-brand { font-size:20px; font-weight:900; }
+      .pdf-brand small { display:block; font-size:11px; font-weight:700; color:#8b6424; letter-spacing:1px; margin-top:2px; }
+      .pdf-meta { font-size:11px; text-align:right; line-height:1.6; color:#333; }
+      .pdf-title { font-size:15px; font-weight:800; margin:0 0 4px; }
+      .pdf-fields { font-size:11px; color:#333; margin-bottom:14px; line-height:1.7; }
+      .pdf-fields b { color:#000; }
+      table.pdf-table { width:100%; border-collapse:collapse; font-size:10.5px; }
+      table.pdf-table th, table.pdf-table td { border:1px solid #b9bdc7; padding:6px 7px; text-align:left; }
+      table.pdf-table th { background:#ece9e1 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-size:9.5px; text-transform:uppercase; }
+      table.pdf-table td.n { text-align:center; width:34px; }
+      table.pdf-table td.r, table.pdf-table th.r { text-align:right; white-space:nowrap; }
+      .pdf-totals { margin-top:14px; width:54%; margin-left:46%; font-size:11px; }
+      .pdf-totals .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #d8dce6; }
+      .pdf-totals .grand { margin-top:6px; padding:9px 11px; background:#17191f !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; color:#fff; display:flex; justify-content:space-between; font-weight:900; font-size:13px; border-radius:4px; }
+      .pdf-totals .grand b { color:#c79a43; }
+      .pdf-foot { margin-top:22px; padding-top:10px; border-top:1px solid #b9bdc7; font-size:9.5px; color:#555; line-height:1.5; }
+      .pdf-foot b { color:#8b6424; }
+    }
   </style>
 </head>
 <body>
@@ -76,27 +113,21 @@
       <aside>
         <strong>Demo precargada</strong>
         <p class="demo-note">Usa esta pantalla para explicar el valor antes de abrir la herramienta completa. Cambia cantidades y muestra como se actualiza el total.</p>
-        <div class="field"><label>Empresa</label><input value="Constructora Ejemplo"></div>
-        <div class="field"><label>Cliente</label><input value="Cliente Residencial"></div>
-        <div class="field"><label>Obra</label><input value="Remodelacion casa habitacion"></div>
-        <div class="field"><label>Ubicacion</label><input value="Cancun, Q. Roo"></div>
-        <div class="partidas">
-          <div class="partida active">A - Preliminares</div>
-          <div class="partida">C - Demoliciones</div>
-          <div class="partida">F - Estructura</div>
-          <div class="partida">K - Acabados</div>
-          <div class="partida">M - Electrica</div>
-        </div>
+        <div class="field"><label>Empresa</label><input id="f-emp" value="Constructora Ejemplo"></div>
+        <div class="field"><label>Cliente</label><input id="f-cli" value="Cliente Residencial"></div>
+        <div class="field"><label>Obra</label><input id="f-obr" value="Remodelacion casa habitacion"></div>
+        <div class="field"><label>Ubicacion</label><input id="f-ubi" value="Cancun, Q. Roo"></div>
+        <div class="partidas" id="partida-list"></div>
       </aside>
 
       <section class="workspace">
         <div class="workspace-head">
           <div>
             <h1>Presupuesto ejemplo para demo</h1>
-            <div class="sub">Muestra el flujo: conceptos, cantidades, calculo, indirectos, utilidad, insumos y salida para cliente.</div>
+            <div class="sub">10 conceptos de 5 partidas distintas. Cambia cantidades y observa como se actualiza el total.</div>
           </div>
           <div class="concept-tools">
-            <button class="btn" onclick="addConcept()">Agregar concepto demo</button>
+            <button class="btn" onclick="shuffleConcepts()">Barajar conceptos</button>
             <button class="btn primary" onclick="recalc()">Calcular presupuesto</button>
           </div>
         </div>
@@ -104,14 +135,14 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Codigo</th><th>Concepto</th><th>Unidad</th><th class="money">Cantidad</th><th class="money">P.U.</th><th class="money">Importe</th></tr>
+              <tr><th class="num">#</th><th>Partida</th><th>Concepto</th><th>Unidad</th><th class="money">Cantidad</th><th class="money">P.U.</th><th class="money">Importe</th></tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
         </div>
 
         <div class="script">
-          "En vez de armar esto desde cero en Excel, Emma ya trae el catálogo, separa los costos, calcula indirectos y genera las salidas que normalmente pide el cliente o la obra."
+          "En vez de armar esto desde cero en Excel, Emma ya trae el catálogo con precios reales, separa los costos, calcula indirectos y genera las salidas que normalmente pide el cliente o la obra."
         </div>
       </section>
 
@@ -124,30 +155,87 @@
         <div class="metric"><span>Utilidad 10%</span><strong id="m-profit">$0.00</strong></div>
         <div class="total"><span>Total general</span><strong id="m-total">$0.00</strong></div>
         <div class="exports">
+          <button class="btn green" onclick="exportPDF()">Exportar catálogo a PDF (gratis)</button>
           <button class="btn" onclick="fakeExport('Excel')">Exportar Excel</button>
           <button class="btn" onclick="fakeExport('Analisis de P.U.')">Analisis P.U.</button>
-          <button class="btn" onclick="fakeExport('PDF / impresion')">PDF / impresion</button>
         </div>
-        <p class="demo-note" id="toast">La app completa incluye busqueda real en 6,185 conceptos y modulos de insumos, FASAR e indirectos.</p>
+        <p class="demo-note" id="toast">El PDF gratuito incluye marca de agua. La app completa (sin marca de agua) incluye busqueda real en 6,185 conceptos, insumos, FASAR e indirectos.</p>
       </aside>
     </main>
   </div>
 
+  <!-- Area que solo aparece al imprimir / guardar PDF -->
+  <div id="print-area"></div>
+
   <script>
     const fmt = n => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const sample = [
-      ['10301-001','Trazo y nivelacion manual para establecer ejes y referencias','M2',400,11.76],
-      ['10304-023','Demolicion de piso de azulejo con retiro de pegazulejo','M2',250,61.45],
-      ['10401-012','Concreto premezclado f c 250 kg/cm2 en elementos estructurales','M3',28,3176.45],
-      ['11102-040','Pintura vinilica en muros interiores a dos manos','M2',620,51.26],
-      ['12206-345','Cable THW calibre 12 color blanco instalado y probado','M',360,24.07],
-    ];
-    let rows = sample.map(x => ({ code:x[0], concept:x[1], unit:x[2], qty:x[3], pu:x[4] }));
+
+    // Pool de conceptos reales por partida (precios MXN aproximados de catalogo)
+    const POOL = {
+      'A - Preliminares': [
+        ['Trazo y nivelacion manual para establecer ejes y referencias','M2',400,11.76],
+        ['Limpieza y desyerbe del terreno por medios manuales','M2',520,18.40],
+        ['Excavacion a mano en material tipo II en zona seca','M3',46,245.80],
+        ['Acarreo de material producto de excavacion en carretilla','M3',46,89.30],
+      ],
+      'C - Demoliciones': [
+        ['Demolicion de piso de azulejo con retiro de pegazulejo','M2',250,61.45],
+        ['Demolicion de muro de tabique de barro rojo recocido','M2',64,142.60],
+        ['Demolicion de firme de concreto de 10 cm de espesor','M2',180,118.75],
+        ['Retiro de carpinteria de madera (puertas) incluye acarreo','PZA',8,95.20],
+      ],
+      'F - Estructura': [
+        ['Concreto premezclado f c 250 kg/cm2 en elementos estructurales','M3',28,3176.45],
+        ['Acero de refuerzo fy 4200 kg/cm2 habilitado y armado','KG',1850,38.90],
+        ['Cimbra comun acabado aparente en trabes y cadenas','M2',96,285.40],
+        ['Castillo armado de 15x15 cm con 4 varillas del numero 3','ML',120,198.60],
+      ],
+      'K - Acabados': [
+        ['Pintura vinilica en muros interiores a dos manos','M2',620,51.26],
+        ['Suministro y colocacion de loseta ceramica en piso','M2',180,389.50],
+        ['Aplanado de mezcla cemento-arena en muros interiores','M2',410,168.30],
+        ['Enladrillado y emboquillado de azotea con impermeabilizante','M2',150,224.70],
+      ],
+      'M - Electrica': [
+        ['Cable THW calibre 12 color blanco instalado y probado','M',360,24.07],
+        ['Salida electrica para contacto con placa y registro','SAL',24,312.50],
+        ['Centro de carga de 4 circuitos con interruptores termomagneticos','PZA',2,1485.00],
+        ['Canalizacion con tuberia conduit pared delgada de 13 mm','ML',140,42.80],
+      ],
+    };
+
+    let rows = [];
+
+    // Toma 2 conceptos aleatorios de cada una de las 5 partidas = 10 conceptos
+    function pickRandom() {
+      const out = [];
+      for (const part of Object.keys(POOL)) {
+        const pool = [...POOL[part]];
+        for (let k = 0; k < 2 && pool.length; k++) {
+          const idx = Math.floor(Math.random() * pool.length);
+          const x = pool.splice(idx, 1)[0];
+          out.push({ part, concept:x[0], unit:x[1], qty:x[2], pu:x[3] });
+        }
+      }
+      return out;
+    }
+
+    function shuffleConcepts() {
+      rows = pickRandom();
+      recalc();
+      document.getElementById('toast').textContent = '10 conceptos nuevos seleccionados al azar de 5 partidas. En la app completa eliges entre 6,185 conceptos reales.';
+    }
+
+    function renderPartidaList() {
+      document.getElementById('partida-list').innerHTML =
+        Object.keys(POOL).map((p, i) => `<div class="partida${i===0?' active':''}">${p}</div>`).join('');
+    }
 
     function renderRows() {
       document.getElementById('rows').innerHTML = rows.map((r, i) => `
         <tr>
-          <td class="code">${r.code}</td>
+          <td class="num">${i + 1}</td>
+          <td class="part">${r.part.split(' - ')[0]}</td>
           <td>${r.concept}</td>
           <td>${r.unit}</td>
           <td class="money"><input type="number" min="0" step="1" value="${r.qty}" oninput="rows[${i}].qty=parseFloat(this.value)||0; recalc()"></td>
@@ -156,37 +244,85 @@
         </tr>`).join('');
     }
 
-    function recalc() {
-      renderRows();
+    function totals() {
       const direct = rows.reduce((s, r) => s + r.qty * r.pu, 0);
       const indirect = direct * .085;
       const risk = direct * .05;
       const profit = (direct + indirect + risk) * .10;
       const total = direct + indirect + risk + profit;
-      document.getElementById('m-concepts').textContent = rows.length;
-      document.getElementById('m-direct').textContent = fmt(direct);
-      document.getElementById('m-indirect').textContent = fmt(indirect);
-      document.getElementById('m-risk').textContent = fmt(risk);
-      document.getElementById('m-profit').textContent = fmt(profit);
-      document.getElementById('m-total').textContent = fmt(total);
+      return { direct, indirect, risk, profit, total };
     }
 
-    function addConcept() {
-      rows.push({
-        code: '11103-010',
-        concept: 'Suministro y colocacion de loseta ceramica en piso',
-        unit: 'M2',
-        qty: 80,
-        pu: 389.5,
-      });
-      recalc();
-      document.getElementById('toast').textContent = 'Concepto agregado. En la app completa esto se hace desde el buscador del catalogo.';
+    function recalc() {
+      renderRows();
+      const t = totals();
+      document.getElementById('m-concepts').textContent = rows.length;
+      document.getElementById('m-direct').textContent = fmt(t.direct);
+      document.getElementById('m-indirect').textContent = fmt(t.indirect);
+      document.getElementById('m-risk').textContent = fmt(t.risk);
+      document.getElementById('m-profit').textContent = fmt(t.profit);
+      document.getElementById('m-total').textContent = fmt(t.total);
     }
 
     function fakeExport(type) {
-      document.getElementById('toast').textContent = type + ' disponible en Emma completa. Abre la app completa para probar la salida real.';
+      document.getElementById('toast').textContent = type + ' disponible en Emma completa (sin marca de agua). Abre la app completa para probar la salida real.';
     }
 
+    // ===== Exportacion a PDF real, gratis, con marca de agua =====
+    function exportPDF() {
+      const emp = document.getElementById('f-emp').value || '-';
+      const cli = document.getElementById('f-cli').value || '-';
+      const obr = document.getElementById('f-obr').value || '-';
+      const ubi = document.getElementById('f-ubi').value || '-';
+      const t = totals();
+      const hoy = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' });
+
+      const filas = rows.map((r, i) => `
+        <tr>
+          <td class="n">${i + 1}</td>
+          <td>${r.concept}</td>
+          <td>${r.unit}</td>
+          <td class="r">${r.qty.toLocaleString('es-MX')}</td>
+          <td class="r">${fmt(r.pu)}</td>
+          <td class="r">${fmt(r.qty * r.pu)}</td>
+        </tr>`).join('');
+
+      document.getElementById('print-area').innerHTML = `
+        <div class="pdf-watermark">EMMA · DEMO<br>emma-presupuestos.com</div>
+        <div class="pdf-head">
+          <div class="pdf-brand">EMMA PRESUPUESTOS<small>CATALOGO DE CONCEPTOS</small></div>
+          <div class="pdf-meta"><b>Fecha:</b> ${hoy}<br>emma-presupuestos.com</div>
+        </div>
+        <div class="pdf-title">${obr}</div>
+        <div class="pdf-fields">
+          <b>Empresa:</b> ${emp} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Cliente:</b> ${cli} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Ubicacion:</b> ${ubi}
+        </div>
+        <table class="pdf-table">
+          <thead>
+            <tr><th class="n">#</th><th>Concepto</th><th>Unidad</th><th class="r">Cantidad</th><th class="r">P.U.</th><th class="r">Importe</th></tr>
+          </thead>
+          <tbody>${filas}</tbody>
+        </table>
+        <div class="pdf-totals">
+          <div class="row"><span>Costo directo</span><span>${fmt(t.direct)}</span></div>
+          <div class="row"><span>Indirectos 8.50%</span><span>${fmt(t.indirect)}</span></div>
+          <div class="row"><span>Imprevistos 5%</span><span>${fmt(t.risk)}</span></div>
+          <div class="row"><span>Utilidad 10%</span><span>${fmt(t.profit)}</span></div>
+          <div class="grand"><span>TOTAL GENERAL</span><b>${fmt(t.total)}</b></div>
+        </div>
+        <div class="pdf-foot">
+          Documento generado con la <b>versión demo gratuita</b> de Emma Presupuestos. Los precios son de referencia.
+          La versión completa (sin marca de agua) incluye búsqueda en 6,185 conceptos reales, desglose de insumos,
+          costos indirectos Art. 45 y exportación a Excel. Conoce más en <b>emma-presupuestos.com</b>
+        </div>`;
+
+      document.getElementById('toast').textContent = 'Se abrió el diálogo de impresión. Elige "Guardar como PDF" para descargar tu catálogo (con marca de agua, sin costo).';
+      setTimeout(() => window.print(), 150);
+    }
+
+    // Init
+    renderPartidaList();
+    rows = pickRandom();
     recalc();
   </script>
 </body>
