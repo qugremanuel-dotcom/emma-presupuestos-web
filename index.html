@@ -329,6 +329,27 @@
     [data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity .55s ease, transform .55s ease; }
     [data-reveal].visible { opacity: 1; transform: translateY(0); }
 
+    /* ── STICKY CTA ──────────────────────────────────────── */
+    .sticky-cta {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      display: flex; align-items: center; justify-content: center; gap: 18px;
+      padding: 12px 24px;
+      background: rgba(23,25,31,.97); backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(199,154,67,.4);
+      box-shadow: 0 -8px 30px rgba(23,25,31,.22);
+      transform: translateY(120%); transition: transform .35s ease;
+    }
+    .sticky-cta.show { transform: translateY(0); }
+    .sticky-cta .sc-text { color: #fff; font-size: 14px; font-weight: 700; }
+    .sticky-cta .sc-text b { color: var(--gold); }
+    .sticky-cta .sc-actions { display: flex; gap: 10px; }
+    @media (max-width: 640px) {
+      .sticky-cta { gap: 10px; padding: 10px 14px; flex-wrap: wrap; }
+      .sticky-cta .sc-text { width: 100%; text-align: center; font-size: 12.5px; }
+      .sticky-cta .sc-actions { width: 100%; }
+      .sticky-cta .sc-actions .btn { flex: 1; }
+    }
+
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 1024px) {
       .feat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -380,9 +401,9 @@
     </div>
     <p class="hero-note">Sin instalaciones · Funciona en cualquier navegador · Soporte incluido</p>
     <div class="hero-proof" data-reveal>
-      <div class="proof-chip"><span class="num">6,185</span><span>conceptos incluidos</span></div>
-      <div class="proof-chip"><span class="num">5,457</span><span>insumos de la base</span></div>
-      <div class="proof-chip"><span class="num">2</span><span>dispositivos por licencia</span></div>
+      <div class="proof-chip"><span class="num" data-count="6185">0</span><span>conceptos incluidos</span></div>
+      <div class="proof-chip"><span class="num" data-count="5457">0</span><span>insumos de la base</span></div>
+      <div class="proof-chip"><span class="num" data-count="2">0</span><span>dispositivos por licencia</span></div>
     </div>
   </div>
 
@@ -683,47 +704,34 @@
   </div>
 </section>
 
-<!-- ═══ TESTIMONIOS ════════════════════════════════════════ -->
-<section class="section test-section" id="testimonios">
+<!-- ═══ POR QUÉ CONFIAR ════════════════════════════════════ -->
+<section class="section test-section" id="confianza">
   <div class="wrap">
     <div class="text-center">
-      <div class="sec-label">Testimonios</div>
-      <h2 class="sec-title">Lo que dicen quienes ya usan Emma</h2>
-      <p class="sec-sub">Profesionales reales de la construcción que cambiaron su manera de presupuestar.</p>
+      <div class="sec-label">Por qué Emma</div>
+      <h2 class="sec-title">Precios reales, no estimaciones inventadas</h2>
+      <p class="sec-sub">Emma es una herramienta nueva y transparente. Esto es lo que la respalda hoy.</p>
     </div>
     <div class="test-grid" data-reveal>
       <div class="test-card">
-        <div class="test-stars">★★★★★</div>
-        <p class="test-text">"Lo que me tomaba un día entero en Excel ahora lo hago en 30 minutos. La base de datos está completa, los APUs se generan solos y el PDF queda perfecto para presentar."</p>
-        <div class="test-author">
-          <div class="test-avatar">RC</div>
-          <div>
-            <div class="test-name">Roberto C.</div>
-            <div class="test-role">Contratista de obra civil · CDMX</div>
-          </div>
-        </div>
+        <div class="feat-icon">🗄️</div>
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:8px">Base verificable, no IA</h3>
+        <p style="font-size:14px;color:var(--ink2);line-height:1.7">A diferencia de un chatbot que inventa números, cada precio en Emma proviene de una base de <strong>6,185 conceptos y 5,457 insumos</strong> auditables. Presupuestos que aguantan una revisión del cliente o una licitación.</p>
       </div>
       <div class="test-card">
-        <div class="test-stars">★★★★★</div>
-        <p class="test-text">"Soy arquitecta y antes presentaba propuestas en Excel improvisado. Desde que uso Emma, mis clientes ven algo profesional y ya gané dos contratos que antes hubiera perdido."</p>
-        <div class="test-author">
-          <div class="test-avatar">RG</div>
-          <div>
-            <div class="test-name">Roxana G.</div>
-            <div class="test-role">Arquitecta independiente · Obregón, Son.</div>
-          </div>
-        </div>
+        <div class="feat-icon">🛡️</div>
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:8px">Garantía de 30 días</h3>
+        <p style="font-size:14px;color:var(--ink2);line-height:1.7">Pruébala sin riesgo. Si en los primeros 30 días Emma no cumple lo prometido, te devolvemos el <strong>100%</strong> de tu pago. Sin preguntas ni burocracia.</p>
       </div>
       <div class="test-card">
-        <div class="test-stars">★★★★★</div>
-        <p class="test-text">"El módulo de indirectos es lo que más me gustó. Configuro mis márgenes una vez y el sistema los aplica a todo. Sin errores, sin recalcular manualmente cada presupuesto."</p>
-        <div class="test-author">
-          <div class="test-avatar">LH</div>
-          <div>
-            <div class="test-name">Luis H.</div>
-            <div class="test-role">Residente de obra · Monterrey, N.L.</div>
-          </div>
-        </div>
+        <div class="feat-icon">💬</div>
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:8px">Soporte directo por WhatsApp</h3>
+        <p style="font-size:14px;color:var(--ink2);line-height:1.7">Detrás de Emma hay una persona real que responde. ¿Una duda, un ajuste de precios o ayuda con tu primer presupuesto? Escríbenos y te respondemos rápido.</p>
+      </div>
+      <div class="test-card">
+        <div class="feat-icon">🚀</div>
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:8px">Sé de los primeros</h3>
+        <p style="font-size:14px;color:var(--ink2);line-height:1.7">Emma acaba de lanzarse. Súmate ahora, aprovecha el precio de arranque y ayúdanos a moldear la herramienta con tu retroalimentación de obra real.</p>
       </div>
     </div>
   </div>
@@ -791,6 +799,15 @@
   <p style="margin-top:8px">© 2026 Emma Presupuestos Pro. Todos los derechos reservados.</p>
 </footer>
 
+<!-- ═══ STICKY CTA ═════════════════════════════════════════ -->
+<div class="sticky-cta" id="stickyCta" aria-hidden="true">
+  <span class="sc-text">Presupuesta con <b>precios reales</b> · Garantía de 30 días</span>
+  <div class="sc-actions">
+    <a class="btn dark" href="/demo">Ver demo</a>
+    <a class="btn gold" href="/pagar?plan=anual">Empezar ahora →</a>
+  </div>
+</div>
+
 <script>
   // FAQ accordion
   document.querySelectorAll('.faq-q').forEach(q => {
@@ -807,6 +824,37 @@
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
   }, { threshold: 0.1 });
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
+
+  // Contadores animados (cuenta de 0 al valor real al entrar en pantalla)
+  const fmtMX = n => n.toLocaleString('es-MX');
+  function animateCount(el) {
+    const target = parseInt(el.dataset.count, 10) || 0;
+    const dur = 1400, t0 = performance.now();
+    function tick(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      el.textContent = fmtMX(Math.round(target * eased));
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  const countObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { animateCount(e.target); countObs.unobserve(e.target); } });
+  }, { threshold: 0.6 });
+  document.querySelectorAll('.num[data-count]').forEach(el => countObs.observe(el));
+
+  // Barra CTA fija: aparece al pasar el hero, se oculta al llegar al CTA final
+  const sticky = document.getElementById('stickyCta');
+  const hero = document.querySelector('.hero');
+  const ctaBand = document.querySelector('.cta-band');
+  function onScroll() {
+    const pastHero = window.scrollY > (hero ? hero.offsetHeight : 600) - 80;
+    const atFooter = ctaBand && ctaBand.getBoundingClientRect().top < window.innerHeight;
+    if (pastHero && !atFooter) sticky.classList.add('show');
+    else sticky.classList.remove('show');
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
 </script>
 </body>
 </html>
