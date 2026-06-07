@@ -4322,13 +4322,15 @@ function renderResults(query) {
   const groups = {};
   matches.forEach(m => { (groups[m._letter] = groups[m._letter] || []).push(m); });
   let html = '';
+  let rowNo = 0;
   PARTIDAS.forEach(([l, n]) => {
     const items = groups[l]; if (!items) return;
     if (!pickerScope) html += `<div class="result-partida">${l} · ${escHtml(n)}</div>`;
     items.forEach(it => {
       const idx = FLAT.indexOf(it);
+      rowNo++;
       html += `<div class="result-item" onclick="addFromPicker(${idx})">
-        <span class="r-cod">${escHtml(it.cod)}</span>
+        <span class="r-cod">${rowNo}</span>
         <span class="r-desc">${highlight(it.c, q)}</span>
         <span class="r-unit">${escHtml(it.u)}</span>
         <span class="r-pu">${fmt(it.p)}</span>
