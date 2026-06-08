@@ -336,6 +336,11 @@ const server = http.createServer(async (req, res) => {
     return sendFile(res, path.join(root, "demo.html"));
   }
 
+  // ── Panel de administración (la página es pública; los datos exigen ADMIN_SECRET) ──
+  if (method === "GET" && pathname === "/emma-admin") {
+    return sendFile(res, path.join(root, "emma-admin.html"));
+  }
+
   // ── Página de login ────────────────────────────────────────────────────────
   if (method === "GET" && pathname === "/login") {
     if (session) return redirect(res, "/app");
@@ -469,6 +474,69 @@ const server = http.createServer(async (req, res) => {
       summary[em] = devs.length;
     }
     return sendJSON(res, 200, summary);
+  }
+
+  // ── GET /api/admin/users — lista completa de usuarios ──────────────────────
+  if (method === "GET" && pathname === "/api/admin/users") {
+    const auth = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim();
+    if (auth !== ADMIN_SECRET) return sendJSON(res, 401, { error: "No autorizado." });
+    const list = USERS.map(u => ({
+      email:   u.email,
+      name:    u.name || "",
+      key:     u.key,
+      plan:    u.plan || "",
+      active:  u.active !== false,
+      admin:   u.admin === true,
+      devices: deviceCount(u.email),
+      createdAt: u.createdAt || "",
+    }));
+    return sendJSON(res, 200, { ok: true, users: list, maxDevices: MAX_DEVICES });
+  }
+
+  // ── POST /api/admin/create-user — genera licencia y da de alta al usuario ──
+  // Body: { email, name, plan: "mensual"|"anual", admin?: bool, sendEmail?: bool }
+  if (method === "POST" && pathname === "/api/admin/create-user") {
+    const auth = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim();
+    if (auth !== ADMIN_SECRET) return sendJSON(res, 401, { error: "No autorizado." });
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const email = (body.email || "").toLowerCase().trim();
+    const name  = (body.name  || "").trim();
+    const plan  = body.plan || "anual";
+    if (!email || !name) return sendJSON(res, 400, { error: "email y name requeridos." });
+    if (!PLANES[plan]) return sendJSON(res, 400, { error: "Plan inválido (mensual o anual)." });
+    if (USERS.some(u => u.email.toLowerCase() === email))
+      return sendJSON(res, 409, { error: "Ya existe un usuario con ese correo." });
+
+    const key = generarLicencia(plan);
+    const nuevo = { email, name, key, plan, active: true, createdAt: new Date().toISOString() };
+    if (body.admin === true) nuevo.admin = true;
+    addPaidUser(nuevo);
+    actualizarRailwayUsers();
+    if (body.sendEmail) { try { await enviarCredenciales(email, name, key, plan); } catch (e) { console.error("[Emma] email alta admin:", e.message); } }
+    console.log(`[Emma] Licencia creada (admin): ${email} · ${key}`);
+    return sendJSON(res, 200, { ok: true, key, email, name, plan });
+  }
+
+  // ── POST /api/admin/set-active — revoca o reactiva una licencia ────────────
+  // Body: { email, active: bool }
+  if (method === "POST" && pathname === "/api/admin/set-active") {
+    const auth = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim();
+    if (auth !== ADMIN_SECRET) return sendJSON(res, 401, { error: "No autorizado." });
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const email  = (body.email || "").toLowerCase().trim();
+    const active = body.active === true;
+    if (!email) return sendJSON(res, 400, { error: "email requerido." });
+    let found = false;
+    USERS.forEach(u => { if (u.email.toLowerCase() === email) { u.active = active; found = true; } });
+    extraUsers.forEach(u => { if (u.email.toLowerCase() === email) { u.active = active; } });
+    if (!found) return sendJSON(res, 404, { error: "Usuario no encontrado." });
+    saveExtraUsers();
+    actualizarRailwayUsers();
+    if (!active) clearDevices(email); // al revocar, libera sus dispositivos
+    console.log(`[Emma] Licencia ${active ? "reactivada" : "revocada"}: ${email}`);
+    return sendJSON(res, 200, { ok: true, email, active });
   }
 
   // ── GET /api/ping ─────────────────────────────────────────────────────────

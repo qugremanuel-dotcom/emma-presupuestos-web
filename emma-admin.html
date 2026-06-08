@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Emma · Panel de administración</title>
+  <style>
+    :root{
+      --ink:#17191f; --muted:#626978; --line:#d8dce6; --paper:#fbfaf6; --soft:#f0f3f7;
+      --gold:#c79a43; --gold-dark:#8b6424; --green:#186b55; --green-bg:#ecf5f1;
+      --red:#c0392b; --red-bg:#fdf3f2; --white:#fff;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--paper);color:var(--ink);line-height:1.5}
+    a{color:inherit}
+    button,input,select{font:inherit}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:800}
+    .mark{display:grid;place-items:center;width:32px;height:32px;border-radius:7px;background:var(--ink);color:var(--gold);font-weight:900}
+    .pill{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--gold-dark);background:#fdf6e9;border:1px solid rgba(139,100,36,.25);padding:4px 10px;border-radius:20px}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-weight:700;font-size:13px;cursor:pointer;transition:box-shadow .15s,transform .12s}
+    .btn:hover{box-shadow:0 3px 12px rgba(23,25,31,.1)}
+    .btn.gold{background:var(--gold);border-color:var(--gold-dark);color:#16120a}
+    .btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+    .btn.danger{background:var(--red-bg);border-color:rgba(192,57,43,.35);color:var(--red)}
+    .btn.sm{min-height:32px;padding:0 10px;font-size:12px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px;margin-bottom:20px}
+    .card h2{font-size:16px;margin-bottom:14px}
+    .field{margin-bottom:12px}
+    .field label{display:block;margin-bottom:5px;font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted)}
+    .field input,.field select{width:100%;height:40px;padding:0 11px;border:1px solid var(--line);border-radius:7px;background:#fff}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row .field{flex:1;min-width:180px}
+    .check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px}
+    .check input{width:auto;height:auto}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:middle}
+    th{background:#f7f8f9;color:var(--muted);font-size:11px;text-transform:uppercase}
+    td.key{font-family:ui-monospace,monospace;font-size:12px;color:var(--gold-dark);font-weight:700;white-space:nowrap}
+    .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:800}
+    .tag.on{background:var(--green-bg);color:var(--green)}
+    .tag.off{background:var(--red-bg);color:var(--red)}
+    .tag.adm{background:#fdf6e9;color:var(--gold-dark);margin-left:6px}
+    .acts{display:flex;gap:6px;flex-wrap:wrap}
+    .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 30px rgba(23,25,31,.3);transition:transform .3s;z-index:99;max-width:90vw}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .toast.err{background:var(--red)}
+    .empty{padding:30px;text-align:center;color:var(--muted)}
+    #gate{max-width:420px;margin:80px auto;text-align:center}
+    #gate .card{text-align:left}
+    .muted{color:var(--muted);font-size:12px}
+    .keybox{background:#fdf6e9;border:1px dashed var(--gold-dark);border-radius:8px;padding:14px;margin-top:12px;text-align:center}
+    .keybox .k{font-family:ui-monospace,monospace;font-size:18px;font-weight:800;color:var(--gold-dark);letter-spacing:2px}
+    @media(max-width:640px){ table{font-size:12px} th,td{padding:8px} .hide-sm{display:none} }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark">E</span><span>Emma · Administración</span></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="pill">Panel privado</span>
+      <button class="btn sm" id="logoutBtn" style="display:none" onclick="logout()">Salir</button>
+    </div>
+  </header>
+
+  <!-- Puerta de acceso -->
+  <div id="gate" class="wrap">
+    <div class="card">
+      <h2>Acceso de administrador</h2>
+      <p class="muted" style="margin-bottom:14px">Ingresa tu clave de administrador (ADMIN_SECRET) para gestionar las licencias.</p>
+      <div class="field"><label>Clave de administrador</label><input type="password" id="secretInput" placeholder="ADMIN_SECRET" onkeydown="if(event.key==='Enter')unlock()"></div>
+      <button class="btn gold" style="width:100%" onclick="unlock()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- Panel -->
+  <main id="panel" class="wrap" style="display:none">
+    <!-- Crear licencia -->
+    <div class="card">
+      <h2>➕ Crear nueva licencia</h2>
+      <div class="row">
+        <div class="field"><label>Nombre</label><input id="c-name" placeholder="Nombre del cliente"></div>
+        <div class="field"><label>Correo</label><input id="c-email" type="email" placeholder="cliente@correo.com"></div>
+        <div class="field"><label>Plan</label>
+          <select id="c-plan"><option value="anual">Anual (vence 2027)</option><option value="mensual">Mensual (vence 2026)</option></select>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="c-admin"> Acceso admin (sin límite de dispositivos)</label>
+      <label class="check"><input type="checkbox" id="c-mail" checked> Enviar credenciales por correo al cliente</label>
+      <button class="btn gold" onclick="createUser()">Generar licencia</button>
+      <div id="newKey" class="keybox" style="display:none"></div>
+    </div>
+
+    <!-- Lista -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="margin:0">👥 Usuarios <span class="muted" id="count"></span></h2>
+        <button class="btn sm" onclick="loadUsers()">↻ Actualizar</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Nombre</th><th>Correo</th><th class="hide-sm">Clave</th><th>Estado</th><th class="hide-sm">Disp.</th><th>Acciones</th></tr></thead>
+          <tbody id="userRows"><tr><td colspan="6" class="empty">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let SECRET = sessionStorage.getItem('emma_admin_secret') || '';
+    let MAXDEV = 2;
+    const $ = id => document.getElementById(id);
+
+    function toast(msg, err){ const t=$('toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); setTimeout(()=>t.className='toast',3200); }
+
+    async function api(path, opts={}){
+      const r = await fetch(path, { ...opts, headers:{ 'Authorization':'Bearer '+SECRET, 'Content-Type':'application/json', ...(opts.headers||{}) } });
+      let data={}; try{ data=await r.json(); }catch{}
+      if(!r.ok) throw new Error(data.error || ('Error '+r.status));
+      return data;
+    }
+
+    function showPanel(){ $('gate').style.display='none'; $('panel').style.display='block'; $('logoutBtn').style.display='inline-flex'; }
+
+    async function unlock(){
+      SECRET = $('secretInput').value.trim();
+      if(!SECRET){ toast('Ingresa la clave.', true); return; }
+      try{
+        await api('/api/admin/users');
+        sessionStorage.setItem('emma_admin_secret', SECRET);
+        showPanel(); loadUsers();
+      }catch(e){ toast(e.message, true); }
+    }
+
+    function logout(){ sessionStorage.removeItem('emma_admin_secret'); SECRET=''; location.reload(); }
+
+    function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    async function loadUsers(){
+      try{
+        const d = await api('/api/admin/users');
+        MAXDEV = d.maxDevices || 2;
+        const tb = $('userRows');
+        $('count').textContent = '· ' + d.users.length;
+        if(!d.users.length){ tb.innerHTML='<tr><td colspan="6" class="empty">Aún no hay usuarios.</td></tr>'; return; }
+        tb.innerHTML = d.users.map(u => `
+          <tr>
+            <td>${esc(u.name)||'<span class="muted">—</span>'}</td>
+            <td>${esc(u.email)}</td>
+            <td class="key hide-sm">${esc(u.key)}</td>
+            <td><span class="tag ${u.active?'on':'off'}">${u.active?'Activa':'Revocada'}</span>${u.admin?'<span class="tag adm">ADMIN</span>':''}</td>
+            <td class="hide-sm">${u.devices}/${u.admin?'∞':MAXDEV}</td>
+            <td><div class="acts">
+              ${u.active
+                ? `<button class="btn sm danger" onclick="setActive('${esc(u.email)}',false)">Revocar</button>`
+                : `<button class="btn sm" onclick="setActive('${esc(u.email)}',true)">Reactivar</button>`}
+              <button class="btn sm" onclick="resetDevices('${esc(u.email)}')">Liberar disp.</button>
+              <button class="btn sm" onclick="copyKey('${esc(u.key)}')">Copiar clave</button>
+            </div></td>
+          </tr>`).join('');
+      }catch(e){ toast(e.message, true); if(/autorizado/i.test(e.message)) logout(); }
+    }
+
+    async function createUser(){
+      const name=$('c-name').value.trim(), email=$('c-email').value.trim(), plan=$('c-plan').value;
+      if(!name||!email){ toast('Nombre y correo requeridos.', true); return; }
+      try{
+        const d = await api('/api/admin/create-user', { method:'POST', body: JSON.stringify({
+          name, email, plan, admin:$('c-admin').checked, sendEmail:$('c-mail').checked
+        })});
+        $('newKey').style.display='block';
+        $('newKey').innerHTML = `Licencia creada para <b>${esc(email)}</b><div class="k">${esc(d.key)}</div><span class="muted">${$('c-mail').checked?'Se envió el correo con las credenciales.':'Comparte esta clave con el cliente.'}</span>`;
+        $('c-name').value=''; $('c-email').value=''; $('c-admin').checked=false;
+        toast('Licencia creada.');
+        loadUsers();
+      }catch(e){ toast(e.message, true); }
+    }
+
+    async function setActive(email, active){
+      if(!confirm((active?'Reactivar':'Revocar')+' la licencia de '+email+'?')) return;
+      try{ await api('/api/admin/set-active', { method:'POST', body: JSON.stringify({ email, active }) });
+        toast(active?'Licencia reactivada.':'Licencia revocada.'); loadUsers();
+      }catch(e){ toast(e.message, true); }
+    }
+
+    async function resetDevices(email){
+      if(!confirm('Liberar todos los dispositivos de '+email+'?')) return;
+      try{ await api('/api/admin/reset-devices', { method:'POST', body: JSON.stringify({ email }) });
+        toast('Dispositivos liberados.'); loadUsers();
+      }catch(e){ toast(e.message, true); }
+    }
+
+    function copyKey(k){ navigator.clipboard.writeText(k).then(()=>toast('Clave copiada.')).catch(()=>toast('No se pudo copiar.', true)); }
+
+    // Auto-entrar si ya hay clave guardada en esta sesión
+    if(SECRET){ api('/api/admin/users').then(()=>{ showPanel(); loadUsers(); }).catch(()=>{ sessionStorage.removeItem('emma_admin_secret'); SECRET=''; }); }
+  </script>
+</body>
+</html>
