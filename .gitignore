@@ -7,3 +7,6 @@ data/proyectos.json
 data/users_extra.json
 data/devices.json
 
+
+# Respaldos que genera scripts/import-db.mjs
+data/*.bak.json
