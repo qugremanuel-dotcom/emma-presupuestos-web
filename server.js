@@ -36,7 +36,31 @@ const COOKIE_NAME  = "emma_session";
 const DEVICE_COOKIE = "emma_device";
 const MAX_DEVICES   = 2;
 const ADMIN_SECRET  = process.env.ADMIN_SECRET || "4be2e609bb541c275702ddc107f24bd5fec80b6e157dc4aa";
-const DEVICES_FILE  = "/tmp/emma_devices.json";
+
+// ─── Directorio de datos persistentes ────────────────────────────────────────
+// Prioridad: EMMA_DATA_DIR > volumen de Railway > ./data
+// Sin volumen montado en producción, cada redeploy borra usuarios de pago,
+// dispositivos y presupuestos guardados. El aviso de abajo lo hace evidente.
+const DATA_DIR = process.env.EMMA_DATA_DIR
+  || process.env.RAILWAY_VOLUME_MOUNT_PATH
+  || path.join(root, "data");
+try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) { console.error("[Emma] No se pudo crear el directorio de datos:", e.message); }
+
+const DEVICES_FILE = path.join(DATA_DIR, "devices.json");
+
+// Migración única desde /tmp (donde vivían antes y se perdían en cada deploy)
+function migrateFromTmp(oldPath, newPath) {
+  try {
+    if (fs.existsSync(oldPath) && !fs.existsSync(newPath)) {
+      fs.copyFileSync(oldPath, newPath);
+      console.log(`[Emma] Migrado ${oldPath} → ${newPath}`);
+    }
+  } catch (e) { console.error("[Emma] Error migrando", oldPath + ":", e.message); }
+}
+migrateFromTmp("/tmp/emma_devices.json", DEVICES_FILE);
+migrateFromTmp("/tmp/emma_users_extra.json", path.join(DATA_DIR, "users_extra.json"));
 
 // ─── Base de usuarios (variable de entorno USERS_DB como JSON array) ─────────
 // Formato: [{"email":"cliente@empresa.com","key":"EMMA-XXXX-YY-HHHHHH","name":"Nombre","active":true}]
@@ -47,8 +71,8 @@ try {
   console.error("[Emma] USERS_DB parse error:", e.message);
 }
 
-// ─── Extra users (creados vía pago, persisten en /tmp) ───────────────────────
-const EXTRA_USERS_FILE = "/tmp/emma_users_extra.json";
+// ─── Extra users (creados vía pago) ──────────────────────────────────────────
+const EXTRA_USERS_FILE = path.join(DATA_DIR, "users_extra.json");
 let extraUsers = [];
 try {
   if (fs.existsSync(EXTRA_USERS_FILE))
@@ -69,8 +93,7 @@ function addPaidUser(user) {
 
 // ─── Proyectos guardados por usuario (multi-proyecto) ────────────────────────
 // { "email": { "<id>": { name, updated_at, data }, ... }, ... }
-const PROY_DIR   = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(root, "data");
-const PROY_FILE  = path.join(PROY_DIR, "proyectos.json");
+const PROY_FILE  = path.join(DATA_DIR, "proyectos.json");
 const MAX_PROYECTOS  = 20;
 const MAX_PROY_BYTES = 5 * 1024 * 1024; // 5 MB por request
 let proyectos = {};
@@ -79,7 +102,6 @@ try {
 } catch (e) { console.error("[Emma] Error leyendo proyectos.json:", e.message); }
 function saveProyectos() {
   try {
-    if (!fs.existsSync(PROY_DIR)) fs.mkdirSync(PROY_DIR, { recursive: true });
     fs.writeFileSync(PROY_FILE, JSON.stringify(proyectos), "utf8");
   } catch (e) { console.error("[Emma] Error guardando proyectos.json:", e.message); }
 }
@@ -784,4 +806,14 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`[Emma] Servidor en puerto ${port}`);
   console.log(`[Emma] Usuarios cargados: ${USERS.length}`);
+  console.log(`[Emma] Datos en: ${DATA_DIR}`);
+  const persistente = !!(process.env.EMMA_DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH);
+  if (!persistente && process.env.NODE_ENV === "production") {
+    console.warn(
+      "\n[Emma] AVISO: no hay volumen persistente montado.\n" +
+      "        Los usuarios de pago, los dispositivos y los presupuestos guardados\n" +
+      "        se BORRARAN en el proximo despliegue.\n" +
+      "        Monta un volumen en Railway o define EMMA_DATA_DIR.\n"
+    );
+  }
 });

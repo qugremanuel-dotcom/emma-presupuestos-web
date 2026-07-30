@@ -4,4 +4,6 @@ Thumbs.db
 *.log
 Emma-Presupuestos-Pro-paquete-comercial.zip
 data/proyectos.json
+data/users_extra.json
+data/devices.json
 
