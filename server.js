@@ -67,6 +67,28 @@ function addPaidUser(user) {
   if (!extraUsers.some(u => u.email.toLowerCase() === em)) { extraUsers.push(nu); saveExtraUsers(); }
 }
 
+// ─── Proyectos guardados por usuario (multi-proyecto) ────────────────────────
+// { "email": { "<id>": { name, updated_at, data }, ... }, ... }
+const PROY_DIR   = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(root, "data");
+const PROY_FILE  = path.join(PROY_DIR, "proyectos.json");
+const MAX_PROYECTOS  = 20;
+const MAX_PROY_BYTES = 5 * 1024 * 1024; // 5 MB por request
+let proyectos = {};
+try {
+  if (fs.existsSync(PROY_FILE)) proyectos = JSON.parse(fs.readFileSync(PROY_FILE, "utf8"));
+} catch (e) { console.error("[Emma] Error leyendo proyectos.json:", e.message); }
+function saveProyectos() {
+  try {
+    if (!fs.existsSync(PROY_DIR)) fs.mkdirSync(PROY_DIR, { recursive: true });
+    fs.writeFileSync(PROY_FILE, JSON.stringify(proyectos), "utf8");
+  } catch (e) { console.error("[Emma] Error guardando proyectos.json:", e.message); }
+}
+function userProyectos(email) {
+  const em = email.toLowerCase();
+  if (!proyectos[em]) proyectos[em] = {};
+  return proyectos[em];
+}
+
 // ─── FNV-1a 32-bit — idéntico al _h() del HTML ───────────────────────────────
 const _LS = "emPrj-X7Q2-2024"; // mismo salt que en el HTML
 function fnv(s) {
@@ -177,10 +199,10 @@ const MIME = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function readBody(req) {
+function readBody(req, maxBytes = 16_384) {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", chunk => { body += chunk; if (body.length > 16_384) req.destroy(); });
+    req.on("data", chunk => { body += chunk; if (body.length > maxBytes) req.destroy(); });
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
@@ -692,6 +714,66 @@ const server = http.createServer(async (req, res) => {
       }
     })();
     return;
+  }
+
+  // ── GET /api/proyectos — lista de presupuestos del usuario ─────────────────
+  if (method === "GET" && pathname === "/api/proyectos") {
+    if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+    const mine = userProyectos(session.email);
+    const list = Object.entries(mine)
+      .map(([id, p]) => ({
+        id,
+        name: p.name,
+        updated_at: p.updated_at,
+        size_bytes: JSON.stringify(p.data || {}).length,
+      }))
+      .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    return sendJSON(res, 200, { ok: true, proyectos: list, max: MAX_PROYECTOS });
+  }
+
+  // ── POST /api/proyectos — guardar/actualizar { id?, name, data } ───────────
+  if (method === "POST" && pathname === "/api/proyectos") {
+    if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+    let body = {};
+    try { body = JSON.parse(await readBody(req, MAX_PROY_BYTES)); } catch {
+      return sendJSON(res, 400, { error: "Cuerpo inválido o demasiado grande (máx. 5 MB)." });
+    }
+    const name = String(body.name || "").trim().slice(0, 120);
+    if (!name) return sendJSON(res, 400, { error: "Nombre del presupuesto requerido." });
+    if (!body.data || typeof body.data !== "object") {
+      return sendJSON(res, 400, { error: "Datos del presupuesto requeridos." });
+    }
+    const mine = userProyectos(session.email);
+    let id = String(body.id || "").trim();
+    if (!id || !mine[id]) {
+      if (Object.keys(mine).length >= MAX_PROYECTOS) {
+        return sendJSON(res, 409, { error: `Límite de ${MAX_PROYECTOS} presupuestos alcanzado. Elimina alguno para continuar.` });
+      }
+      id = crypto.randomUUID();
+    }
+    mine[id] = { name, updated_at: new Date().toISOString(), data: body.data };
+    saveProyectos();
+    return sendJSON(res, 200, { ok: true, id, name, updated_at: mine[id].updated_at });
+  }
+
+  // ── GET|DELETE /api/proyectos/<id> ─────────────────────────────────────────
+  {
+    const m = pathname.match(/^\/api\/proyectos\/([0-9a-f-]{36})$/);
+    if (m) {
+      if (!session) return sendJSON(res, 401, { error: "No autenticado." });
+      const mine = userProyectos(session.email);
+      const p = mine[m[1]];
+      if (!p) return sendJSON(res, 404, { error: "Presupuesto no encontrado." });
+      if (method === "GET") {
+        return sendJSON(res, 200, { ok: true, id: m[1], name: p.name, updated_at: p.updated_at, data: p.data });
+      }
+      if (method === "DELETE") {
+        delete mine[m[1]];
+        saveProyectos();
+        return sendJSON(res, 200, { ok: true });
+      }
+      res.writeHead(405); res.end(); return;
+    }
   }
 
   // ── 404 ───────────────────────────────────────────────────────────────────

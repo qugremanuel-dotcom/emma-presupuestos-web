@@ -3,4 +3,5 @@ node_modules/
 Thumbs.db
 *.log
 Emma-Presupuestos-Pro-paquete-comercial.zip
+data/proyectos.json
 

@@ -1019,28 +1019,68 @@ table.ins-panel-table td {
 }
 mark { background: #FFF3C8; color: var(--ink); padding: 0 1px; }
 
-/* ============ VIEW TABS ============ */
+/* ============ MODULE SHELL (riel de módulos) ============ */
+.module-shell {
+  display: grid;
+  grid-template-columns: 172px 1fr;
+  align-items: stretch;
+}
+.module-content { min-width: 0; }
 .view-tabs {
   display: flex;
-  gap: 22px;
-  padding: 0 28px;
-  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 0 18px;
+  border-right: 1px solid var(--line);
   background: var(--paper-2);
+}
+.rail-title {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-4, #888780); font-weight: 700;
+  padding: 0 18px 10px;
 }
 .view-tab {
   border: none;
   background: transparent;
-  padding: 14px 0 13px;
+  padding: 10px 18px;
   cursor: pointer;
   color: var(--ink-3);
-  font-size: 14px;
-  font-weight: 700;
-  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  border-left: 3px solid transparent;
+  transition: background .12s, color .12s;
 }
+.view-tab:hover { background: var(--paper, #FAF8F2); color: var(--ink); }
 .view-tab.active {
-  color: #002E5D;
-  border-bottom-color: var(--gold-dk);
+  color: var(--ink);
+  background: linear-gradient(90deg, var(--gold-lt, #F4EBD2) 0%, var(--paper, #FAF8F2) 100%);
+  border-left-color: var(--gold);
+  font-weight: 700;
 }
+@media (max-width: 900px) {
+  .module-shell { grid-template-columns: 1fr; }
+  .view-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0;
+    padding: 0 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-title { display: none; }
+  .view-tab {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: 12px 14px;
+  }
+  .view-tab.active { border-left-color: transparent; border-bottom-color: var(--gold); background: transparent; }
+}
+@media print { .module-shell { display: block !important; } }
+
+/* fila activa del grid (navegación de teclado) */
+tr.row-focus > td { background: #FAF3DF !important; }
 .app-view { display: none; }
 .app-view.active { display: block; }
 .insumos-list.active { display: block; }
@@ -1385,6 +1425,7 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       <button class="btn" onclick="openPicker(null)" title="Buscar entre todas las partidas">
         <span>⌕</span> Buscar en todas
       </button>
+      <button class="btn" onclick="openProyectos()" title="Presupuestos guardados en tu cuenta">☁ Mis presupuestos</button>
       <button class="btn btn-ghost btn-sm" onclick="clearAll()">Limpiar todo</button>
     </div>
     <div class="tb-right">
@@ -1403,13 +1444,16 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
     </div>
   </div>
 
-  <div class="view-tabs screen-only">
+  <div class="module-shell">
+  <nav class="view-tabs screen-only" aria-label="Módulos">
+    <div class="rail-title">Módulos</div>
     <button class="view-tab active" id="tab-presupuesto" onclick="switchView('presupuesto')">📋 Presupuesto</button>
-    <button class="view-tab" id="tab-insumos" onclick="switchView('insumos')">📦 Listado de insumos</button>
-    <button class="view-tab" id="tab-basicos" onclick="switchView('basicos')">Básicos</button>
-    <button class="view-tab" id="tab-fasar" onclick="switchView('fasar')">FASAR / Mano de obra</button>
-    <button class="view-tab" id="tab-indirectos" onclick="switchView('indirectos')">📊 Indirectos de Obra</button>
-  </div>
+    <button class="view-tab" id="tab-insumos" onclick="switchView('insumos')">📦 Insumos</button>
+    <button class="view-tab" id="tab-basicos" onclick="switchView('basicos')">🧱 Básicos</button>
+    <button class="view-tab" id="tab-fasar" onclick="switchView('fasar')">👷 FASAR / M.O.</button>
+    <button class="view-tab" id="tab-indirectos" onclick="switchView('indirectos')">📊 Indirectos</button>
+  </nav>
+  <div class="module-content">
 
   <!-- ========== WORK ========== -->
   <section class="app-view active screen-only" id="budgetView">
@@ -1693,6 +1737,8 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
       </div>
     </div>
   </section>
+  </div><!-- /module-content -->
+  </div><!-- /module-shell -->
 
   <div class="footer screen-only">
     Emma-Presupuestos (<span id="footYear"></span>) · <a href="#" onclick="event.preventDefault(); resetData();">Borrar todo</a>
@@ -1798,6 +1844,51 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   </div>
 </div>
 
+<!-- ========== MODAL MIS PRESUPUESTOS ========== -->
+<div class="modal-bg" id="proyectosBg" onclick="if(event.target===this) closeProyectos()">
+  <div class="modal" style="max-width:660px">
+    <div class="modal-head">
+      <div class="modal-title-wrap">
+        <div class="modal-title">Mis presupuestos</div>
+        <div class="modal-scope">Guardados en tu cuenta</div>
+      </div>
+      <button class="modal-close" onclick="closeProyectos()">×</button>
+    </div>
+    <div class="proy-savebar">
+      <input type="text" id="proyName" placeholder="Nombre del presupuesto (ej. Casa Palenque 142)" maxlength="120">
+      <button class="btn btn-gold btn-sm" onclick="saveProyecto()">☁ Guardar actual</button>
+    </div>
+    <div class="modal-results" id="proyList"><div class="proy-empty">Cargando…</div></div>
+    <div class="modal-foot" id="proyFoot">Los presupuestos se guardan en el servidor, ligados a tu licencia.</div>
+  </div>
+</div>
+<style>
+.proy-savebar {
+  display: flex; gap: 10px; padding: 14px 24px;
+  border-bottom: 1px solid var(--line); background: white;
+}
+.proy-savebar input {
+  flex: 1; font-size: 14px; padding: 9px 12px;
+  border: 1px solid var(--line); outline: none;
+}
+.proy-savebar input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,169,110,0.18); }
+.proy-item {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+  padding: 12px 24px; border-bottom: 1px solid var(--line-soft, #E5E3DA);
+  align-items: center;
+}
+.proy-item:hover { background: #FFFCF5; }
+.proy-item.current { background: var(--gold-lt, #F4EBD2); }
+.proy-item-name { font-weight: 600; font-size: 14px; color: var(--ink); }
+.proy-item-meta { font-size: 11px; color: var(--ink-4, #888780); font-family: ui-monospace, monospace; }
+.proy-item-actions { display: flex; gap: 6px; grid-row: span 2; }
+.proy-empty { padding: 28px 24px; text-align: center; color: var(--ink-4, #888780); font-style: italic; font-size: 13px; }
+.proy-current-tag {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold-dk); margin-left: 8px;
+}
+</style>
+
 <div class="ins-panel-bg" id="insumosPanelBg" onclick="if(event.target===this) closeInsumosPanel()">
   <aside class="ins-panel" aria-label="Desglose de insumos">
     <div id="insumosPanelContent"></div>
@@ -1867,8 +1958,13 @@ const EMMA_SERVER = '';  // mismo origen — Express sirve el HTML
 const MAX_REBINDS = 3;
 
 // ── Fetch autenticado (cookie de sesión) ────────────────────────────────────
-async function emmaFetch(endpoint) {
-  const res = await fetch(EMMA_SERVER + endpoint, { credentials: 'include' });
+async function emmaFetch(endpoint, options = {}) {
+  const opts = { credentials: 'include', ...options };
+  if (opts.body && typeof opts.body !== 'string') {
+    opts.body = JSON.stringify(opts.body);
+    opts.headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  }
+  const res = await fetch(EMMA_SERVER + endpoint, opts);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 401 || res.status === 403) {
@@ -2087,7 +2183,7 @@ async function startInit() {
   document.getElementById('backupInput').addEventListener('change', e => importBackup(e.target.files[0]));
   window.addEventListener('beforeprint', () => calcularPresupuesto(false));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closePicker(); closeInsumosPanel(); }
+    if (e.key === 'Escape') { closePicker(); closeInsumosPanel(); closeProyectos(); }
   });
   render();
 }
@@ -2460,6 +2556,115 @@ function restoreSnapshot(data) {
   hydrateMeta();
   hydrateFasar();
   render();
+}
+
+// ========================================================
+// MIS PRESUPUESTOS (multi-proyecto en servidor)
+// ========================================================
+function getCurrentProyectoId() { return localStorage.getItem('emma_proy_id') || null; }
+function setCurrentProyectoId(id) {
+  if (id) localStorage.setItem('emma_proy_id', id);
+  else localStorage.removeItem('emma_proy_id');
+}
+
+function openProyectos() {
+  document.getElementById('proyectosBg').classList.add('open');
+  const input = document.getElementById('proyName');
+  if (!input.value.trim()) input.value = STATE.meta.obra || '';
+  refreshProyList();
+}
+function closeProyectos() {
+  document.getElementById('proyectosBg').classList.remove('open');
+}
+
+async function refreshProyList() {
+  const box = document.getElementById('proyList');
+  try {
+    const res = await emmaFetch('/api/proyectos');
+    const list = res.proyectos || [];
+    if (!list.length) {
+      box.innerHTML = '<div class="proy-empty">Aún no tienes presupuestos guardados.<br>Ponle nombre al actual y presiona «Guardar actual».</div>';
+      return;
+    }
+    const curId = getCurrentProyectoId();
+    box.innerHTML = list.map(p => {
+      const d = p.updated_at ? new Date(p.updated_at) : null;
+      const fecha = d ? d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—';
+      const kb = Math.max(1, Math.round((p.size_bytes || 0) / 1024));
+      const cur = p.id === curId;
+      return `<div class="proy-item${cur ? ' current' : ''}">
+        <div>
+          <span class="proy-item-name">${escHtml(p.name)}</span>${cur ? '<span class="proy-current-tag">● abierto</span>' : ''}
+          <div class="proy-item-meta">${fecha} · ${kb} KB</div>
+        </div>
+        <div class="proy-item-actions">
+          <button class="btn btn-xs" onclick="loadProyecto('${p.id}')">Abrir</button>
+          <button class="btn btn-xs" onclick="duplicateProyecto('${p.id}')">Duplicar</button>
+          <button class="btn btn-xs" onclick="deleteProyecto('${p.id}', this)" title="Eliminar">×</button>
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('proyFoot').textContent =
+      `${list.length} de ${res.max || 20} presupuestos · guardados en el servidor, ligados a tu licencia.`;
+  } catch (err) {
+    box.innerHTML = `<div class="proy-empty">No se pudo cargar la lista: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function saveProyecto() {
+  const input = document.getElementById('proyName');
+  const name = (input.value || '').trim() || STATE.meta.obra || 'Presupuesto sin nombre';
+  try {
+    const res = await emmaFetch('/api/proyectos', {
+      method: 'POST',
+      body: { id: getCurrentProyectoId(), name, data: snapshotState() },
+    });
+    setCurrentProyectoId(res.id);
+    toast(`«${name}» guardado en tu cuenta`);
+    refreshProyList();
+  } catch (err) {
+    alert('No se pudo guardar: ' + err.message);
+  }
+}
+
+async function loadProyecto(id) {
+  try {
+    const res = await emmaFetch('/api/proyectos/' + id);
+    restoreSnapshot(res.data);
+    setCurrentProyectoId(id);
+    document.getElementById('proyName').value = res.name || '';
+    closeProyectos();
+    toast(`«${res.name}» abierto`);
+  } catch (err) {
+    alert('No se pudo abrir: ' + err.message);
+  }
+}
+
+async function duplicateProyecto(id) {
+  try {
+    const res = await emmaFetch('/api/proyectos/' + id);
+    await emmaFetch('/api/proyectos', {
+      method: 'POST',
+      body: { name: (res.name || 'Presupuesto') + ' (copia)', data: res.data },
+    });
+    toast('Copia creada');
+    refreshProyList();
+  } catch (err) {
+    alert('No se pudo duplicar: ' + err.message);
+  }
+}
+
+async function deleteProyecto(id, btn) {
+  if (!confirm('¿Eliminar este presupuesto del servidor? Esta acción no se puede deshacer.')) return;
+  try {
+    await emmaFetch('/api/proyectos/' + id, { method: 'DELETE' });
+    if (getCurrentProyectoId() === id) setCurrentProyectoId(null);
+    toast('Presupuesto eliminado');
+    refreshProyList();
+  } catch (err) {
+    alert('No se pudo eliminar: ' + err.message);
+  }
 }
 
 function downloadBlob(content, filename, type) {
@@ -4138,6 +4343,49 @@ function switchView(view) {
   if (view === 'indirectos')  renderIndirectos();
 }
 
+// ========================================================
+// NAVEGACIÓN DE TECLADO EN GRIDS (estilo hoja de cálculo)
+// ========================================================
+function gridNavContext(input) {
+  if (!input || !input.classList) return null;
+  const cls = input.classList.contains('cell-input') ? '.cell-input'
+            : input.classList.contains('ins-cell-input') ? '.ins-cell-input' : null;
+  if (!cls) return null;
+  const table = input.closest('table');
+  if (!table) return null;
+  const rows = Array.from(table.querySelectorAll('tr')).filter(tr => tr.querySelector(cls));
+  const tr = input.closest('tr');
+  const r = rows.indexOf(tr);
+  if (r < 0) return null;
+  const rowInputs = Array.from(tr.querySelectorAll(cls));
+  return { cls, rows, r, c: rowInputs.indexOf(input) };
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const ctx = gridNavContext(e.target);
+  if (!ctx) return;
+  const dir = e.key === 'ArrowUp' ? -1 : 1;
+  const destRow = ctx.rows[ctx.r + dir];
+  if (!destRow) return;
+  const destInputs = Array.from(destRow.querySelectorAll(ctx.cls));
+  const dest = destInputs[Math.min(Math.max(ctx.c, 0), destInputs.length - 1)];
+  if (!dest) return;
+  e.preventDefault();
+  dest.focus();
+  document.querySelectorAll('tr.row-focus').forEach(x => x.classList.remove('row-focus'));
+  const destTr = dest.closest('tr');
+  if (destTr) destTr.classList.add('row-focus');
+  if (dest.select) { try { dest.select(); } catch(_) {} }
+});
+document.addEventListener('focusin', e => {
+  document.querySelectorAll('tr.row-focus').forEach(x => x.classList.remove('row-focus'));
+  if (!gridNavContext(e.target)) return;
+  const tr = e.target.closest('tr');
+  if (tr) tr.classList.add('row-focus');
+  if (e.target.select) setTimeout(() => { try { e.target.select(); } catch(_) {} }, 0);
+});
+
 function setInsumoFilter(filter) {
   activeInsumoFilter = filter;
   ['all','M','B','O','E'].forEach(k => {
@@ -4594,6 +4842,46 @@ function printBudget() {
 </head>
 <body>
 <div class="page">
+  <!-- ══════════ CARÁTULA DE LICITACIÓN ══════════ -->
+  <div style="page-break-after:always;display:flex;flex-direction:column;min-height:235mm">
+    <div style="text-align:center;padding-top:26mm">
+      ${meta.logo ? `<img src="${meta.logo}" style="max-height:110px;max-width:220px;object-fit:contain;margin-bottom:22px">` : ''}
+      <div style="font-size:10px;letter-spacing:0.32em;text-transform:uppercase;color:#96793E;font-weight:700;margin-bottom:14px">Documento de licitación</div>
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:34px;font-weight:700;color:#1A1A1A;line-height:1.15">Presupuesto de Obra</div>
+      <div style="width:70px;height:3px;background:#C8A96E;margin:18px auto"></div>
+      ${meta.obra ? `<div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;color:#2C2C2A;margin-bottom:6px">${esc(meta.obra)}</div>` : ''}
+      ${meta.ubicacion ? `<div style="font-size:11px;color:#5F5E5A">${esc(meta.ubicacion)}</div>` : ''}
+    </div>
+    <table style="width:78%;margin:16mm auto 0;border-collapse:collapse;font-size:11px">
+      ${meta.empresa ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;color:#888780;text-transform:uppercase;font-size:9px;letter-spacing:0.12em;font-weight:700;width:130px">Empresa</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">${esc(meta.empresa)}</td></tr>` : ''}
+      ${meta.cliente ? `<tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;color:#888780;text-transform:uppercase;font-size:9px;letter-spacing:0.12em;font-weight:700;width:130px">Cliente</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">${esc(meta.cliente)}</td></tr>` : ''}
+      <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;color:#888780;text-transform:uppercase;font-size:9px;letter-spacing:0.12em;font-weight:700;width:130px">Fecha</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">${esc(meta.fecha || stamp)}</td></tr>
+      <tr><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA;color:#888780;text-transform:uppercase;font-size:9px;letter-spacing:0.12em;font-weight:700;width:130px">Alcance</td><td style="padding:7px 10px;border-bottom:1px solid #E5E3DA">${count} conceptos en ${PARTIDAS.filter(([pl]) => STATE.rows[pl].length).length} partidas</td></tr>
+    </table>
+    <div style="width:78%;margin:10mm auto 0;border:2px solid #C8A96E;padding:14px 18px;text-align:center">
+      <div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#96793E;font-weight:700;margin-bottom:6px">${STATE.ci.apuFormat === 'iva' ? 'Importe total (IVA de materiales incluido)' : 'Importe total con IVA'}</div>
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;color:#1A1A1A">$ ${fmtN(STATE.ci.apuFormat === 'iva' ? total : total * 1.16)} M.N.</div>
+      <div style="font-size:9.5px;color:#5F5E5A;font-style:italic;margin-top:6px">* ${numToLetras(STATE.ci.apuFormat === 'iva' ? total : total * 1.16)} *</div>
+    </div>
+    <div style="flex:1"></div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8mm">
+      <tr>
+        <td style="width:33%;text-align:center;padding:0 12px">
+          <div style="border-top:1px solid #1A1A1A;padding-top:8px;font-size:10px">${meta.responsable ? esc(meta.responsable) : '&nbsp;'}</div>
+          <div style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-top:4px">Elaboró</div>
+        </td>
+        <td style="width:33%;text-align:center;padding:0 12px">
+          <div style="border-top:1px solid #1A1A1A;padding-top:8px;font-size:10px">&nbsp;</div>
+          <div style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-top:4px">Revisó</div>
+        </td>
+        <td style="width:33%;text-align:center;padding:0 12px">
+          <div style="border-top:1px solid #1A1A1A;padding-top:8px;font-size:10px">${meta.cliente ? esc(meta.cliente) : '&nbsp;'}</div>
+          <div style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#888780;font-weight:700;margin-top:4px">Autorizó</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+  <!-- ══════════ CATÁLOGO DE CONCEPTOS ══════════ -->
   <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
     ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
     <div style="flex:1">
