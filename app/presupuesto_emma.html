@@ -2823,28 +2823,52 @@ const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':
 
 // Índice inverso descripción → código, construido al hidratar el datalist
 let _catalogDescToCod = {};
+let _catalogAmbiguas = new Set();
 
 function hydrateInsumoCatalogOptions() {
   const list = document.getElementById('insumoCatalogOptions');
   if (!list || list.children.length) return;
   _catalogDescToCod = {};
+  _catalogAmbiguas = new Set();
+
+  // 1) Resolver las entradas que se van a ofrecer (las cuadrillas se agrupan).
+  const entradas = [];
   const seenWorkers = new Set();
-  list.innerHTML = Object.entries(I_DICT).map(([cod, v]) => {
+  for (const [cod, v] of Object.entries(I_DICT)) {
     let resolvedCod = cod;
     let entry = v;
     if (isFasarWorkerCode(cod)) {
       const canonical = canonicalWorkerCode(cod);
-      if (seenWorkers.has(canonical)) return '';
+      if (seenWorkers.has(canonical)) continue;
       seenWorkers.add(canonical);
       resolvedCod = displayWorkerCode(canonical);
       entry = getWorkerDictEntry(canonical) || v;
     }
     const desc = entry[0] || '';
-    const unit = entry[1] || '';
-    if (!desc) return '';
-    _catalogDescToCod[desc] = resolvedCod;   // desc → cod para parseo inverso
-    return `<option value="${escHtml(desc)}" label="${escHtml(unit)}"></option>`;
+    if (!desc) continue;
+    entradas.push({ cod: resolvedCod, desc, unit: entry[1] || '' });
+  }
+
+  // 2) Detectar descripciones repetidas. Hay insumos distintos que comparten
+  //    texto (mismo material en KG y en TON, o dos versiones con distinto
+  //    rendimiento). Si la descripción fuera la única clave, uno de los dos
+  //    quedaría inalcanzable y elegirlo por nombre traería el precio del otro.
+  const veces = new Map();
+  for (const e of entradas) veces.set(e.desc, (veces.get(e.desc) || 0) + 1);
+  for (const [desc, n] of veces) if (n > 1) _catalogAmbiguas.add(desc);
+
+  // 3) Emitir: las ambiguas se ofrecen como "CÓDIGO | descripción".
+  list.innerHTML = entradas.map(e => {
+    const value = _catalogAmbiguas.has(e.desc) ? `${e.cod} | ${e.desc}` : e.desc;
+    _catalogDescToCod[value] = e.cod;
+    return `<option value="${escHtml(value)}" label="${escHtml(e.unit)}"></option>`;
   }).join('');
+}
+
+// Texto con el que se precarga el campo del catálogo: lleva el código delante
+// solo cuando la descripción sola no basta para saber de qué insumo se trata.
+function catalogValueFor(cod, desc) {
+  return (cod && _catalogAmbiguas && _catalogAmbiguas.has(desc)) ? `${cod} | ${desc}` : desc;
 }
 
 function parseCatalogValue(value) {
@@ -4040,7 +4064,7 @@ function renderInsumosPanel() {
     const un = i.u || dictEntry[1];
     const cs = i.cs ?? dictEntry[2] ?? 0;
     const type = i.t || 'M';
-    const catalogValue = desc;
+    const catalogValue = catalogValueFor(i.cod, desc);
     return `<tr>
       <td><select class="ins-type-select" onchange="onInsumoChange(${idx},${k},'t',this.value)">
         <option value="M"${type === 'M' ? ' selected':''}>Mat</option>
