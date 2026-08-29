@@ -6670,7 +6670,7 @@ function exportConceptBreakdownsPdf_OLD_UNUSED() {
         <div class="eyebrow">Proyecto Emma / Analisis de precios unitarios</div>
         <h1>Desglose de precios unitarios</h1>
       </div>
-      ${meta.logo ? `<img class="logo" src="${esc(meta.logo)}" alt="Logo">` : ''}
+      ${meta.logo ? `<img class="logo" src="${escHtml(meta.logo)}" alt="Logo">` : ''}
     </div>
     <div class="cover-meta">
       <div class="meta-box"><span>Empresa</span><strong>${escHtml(meta.empresa || '')}</strong></div>
@@ -6868,7 +6868,7 @@ function printBasicos() {
       <div>
         <h1>Análisis de básicos y cuadrillas — ${escHtml(filterLabel)}</h1>
       </div>
-      ${meta.logo ? `<img class="logo" src="${esc(meta.logo)}" alt="Logo">` : ''}
+      ${meta.logo ? `<img class="logo" src="${escHtml(meta.logo)}" alt="Logo">` : ''}
     </div>
     <div class="cover-meta">
       <div class="meta-box"><span>Empresa</span><strong>${escHtml(meta.empresa || '—')}</strong></div>
