@@ -4,7 +4,10 @@
   "private": true,
   "description": "Sitio comercial y demo de Emma Presupuestos Pro.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node scripts/smoke-test.mjs && node scripts/check-escapes.mjs",
+    "check-escapes": "node scripts/check-escapes.mjs",
+    "import-db": "node scripts/import-db.mjs"
   },
   "engines": {
     "node": ">=18"
