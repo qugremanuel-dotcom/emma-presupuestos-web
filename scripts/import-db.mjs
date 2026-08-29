@@ -68,9 +68,10 @@ const upper = s => norm(s).toUpperCase();
 const num   = v => {
   if (v === null || v === undefined || v === '') return 0;
   if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  let s = String(v).trim();
-  // '12,50' (coma decimal) → 12.50 — sin esto se leería como 1250
-  if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  const s = String(v).trim();
+  // La coma se descarta como separador de miles: en México '12,500' son doce
+  // mil quinientos. NO tratarla como decimal — hacerlo dividiría entre 1000
+  // costos capturados como texto, en silencio.
   const n = parseFloat(s.replace(/[$,\s]/g, ''));
   return Number.isFinite(n) ? n : 0;
 };

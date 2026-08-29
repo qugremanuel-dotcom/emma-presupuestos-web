@@ -2115,7 +2115,6 @@ async function startInit() {
     // __partidas: partidas extra (fuera de A–R) definidas en la base de datos
     DB_PARTIDAS = Array.isArray(DB.__partidas) ? DB.__partidas : [];
     delete DB.__partidas;
-    applyDbPartidas();
     buildFlatIndex();
   } catch (err) {
     showLoadError('Error cargando el catálogo: ' + err.message);
@@ -2142,6 +2141,9 @@ async function startInit() {
   const _logoutBtn = document.getElementById('header-logout-btn');
   if (_logoutBtn) _logoutBtn.style.display = 'block';
   load();
+  // Después de load(): las partidas propias del usuario tienen prioridad sobre
+  // las de la base si coincide la letra, igual que al restaurar un respaldo.
+  applyDbPartidas();
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
@@ -2390,12 +2392,21 @@ let I_BREAKDOWN = {};
 let DB_PARTIDAS = [];
 function applyDbPartidas() {
   for (const [l, n] of DB_PARTIDAS) {
+    // Si el usuario ya definió esa letra, la suya manda: no se pisa su trabajo.
     if (!NAME_BY_LETTER[l] && !PARTIDAS.some(([, pn]) => pn === n)) {
       PARTIDAS.push([l, n]);
       NAME_BY_LETTER[l] = n;
     }
     if (!STATE.rows[l]) STATE.rows[l] = [];
   }
+}
+// Las partidas de la base también van al respaldo: si no, restaurar en un
+// equipo que aún no las tiene descartaría los conceptos archivados en ellas.
+function partidasParaSnapshot() {
+  const propias = STATE.customPartidas || [];
+  const letras = new Set(propias.map(([l]) => l));
+  const extra = DB_PARTIDAS.filter(([l]) => !letras.has(l) && (STATE.rows[l] || []).length > 0);
+  return [...propias, ...extra];
 }
 
 function buildFlatIndex() {
@@ -2417,7 +2428,7 @@ function save() {
       fasar: STATE.fasar,
       ci: STATE.ci,
       active: activePartida,
-      customPartidas: STATE.customPartidas,
+      customPartidas: partidasParaSnapshot(),
       customMaterialCosts: STATE.customMaterialCosts || {},
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -2497,7 +2508,7 @@ function snapshotState() {
     fasar: STATE.fasar,
     ci: STATE.ci,
     active: activePartida,
-    customPartidas: STATE.customPartidas,
+    customPartidas: partidasParaSnapshot(),
   };
 }
 
@@ -2627,8 +2638,11 @@ async function saveProyecto() {
       res = await emmaFetch('/api/proyectos', { method: 'POST', body });
     } catch (err) {
       if (err.status === 409 && err.body && err.body.conflict) {
-        const otro = err.body.updated_at ? new Date(err.body.updated_at).toLocaleString('es-MX') : 'otra sesión';
-        if (!confirm(`Este presupuesto fue modificado desde otra computadora (${otro}).\n\n¿Sobrescribir con lo que tienes aquí?\n\nCancelar para no perder esos cambios (puedes abrirlo de nuevo para verlos).`)) {
+        const cuando = err.body.updated_at ? new Date(err.body.updated_at).toLocaleString('es-MX') : 'fecha desconocida';
+        const aviso = err.body.unknown
+          ? `No se pudo verificar si «${name}» cambió desde otra computadora.\nÚltimo guardado en el servidor: ${cuando}.\n\n¿Sobrescribirlo con lo que tienes aquí?`
+          : `Este presupuesto fue modificado desde otra computadora (${cuando}).\n\n¿Sobrescribir con lo que tienes aquí?\n\nCancelar para no perder esos cambios (puedes abrirlo de nuevo para verlos).`;
+        if (!confirm(aviso)) {
           refreshProyList();
           return;
         }
@@ -4947,7 +4961,7 @@ function printBudget() {
   </div>
   <!-- ══════════ CATÁLOGO DE CONCEPTOS ══════════ -->
   <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
-    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    ${meta.logo ? `<img src="${esc(meta.logo)}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
     <div style="flex:1">
       <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Presupuesto de Obra</div>
       ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
@@ -5019,7 +5033,7 @@ function renderPrintArea() {
   const total   = directo * currentFactor + impAmt; // coincide con recalcTotals
   let html = `<div style="font-size:10.5px;line-height:1.34">
   <div style="display:flex;align-items:center;gap:16px;padding:0 0 14px;border-bottom:1px solid #D3D1C7;margin-bottom:16px">
-    ${STATE.meta.logo ? `<img src="${STATE.meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:8px">` : ''}
+    ${STATE.meta.logo ? `<img src="${escHtml(STATE.meta.logo)}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:8px">` : ''}
     <div style="flex:1">
       <div style="font-family:'Playfair Display','Iowan Old Style',serif;font-size:19px;font-weight:700">Presupuesto de obra</div>
       ${STATE.meta.empresa ? `<div style="font-size:10.5px;margin-top:7px">Empresa: ${escHtml(STATE.meta.empresa)}</div>` : ''}
@@ -5387,7 +5401,7 @@ function printInsumosList() {
 <body>
 <div class="page">
   <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:4px">
-    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    ${meta.logo ? `<img src="${esc(meta.logo)}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
     <div style="flex:1">
       <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Listado de Insumos</div>
       ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
@@ -5700,7 +5714,7 @@ function exportPresupuestoCD() {
 <body>
 <div class="page">
   <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid #C8A96E;margin-bottom:18px">
-    ${meta.logo ? `<img src="${meta.logo}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
+    ${meta.logo ? `<img src="${esc(meta.logo)}" style="height:62px;width:92px;object-fit:contain;border:1px solid #D3D1C7;padding:6px">` : ''}
     <div style="flex:1">
       <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:700;color:#1A1A1A">Presupuesto de Obra — Costo Directo</div>
       ${meta.empresa   ? `<div style="font-size:10.5px;margin-top:6px">Empresa: ${esc(meta.empresa)}</div>` : ''}
@@ -6276,7 +6290,7 @@ function _doExportAnalisisPU(format, ciPorc, cuPorc, cfPorc) {
         <h1>Análisis de Precios Unitarios</h1>
         <div style="color:#C8A96E;font-size:8.5px;margin-top:5px">${esc(fmtLabel)}</div>
       </div>
-      ${meta.logo ? `<img class="logo" src="${meta.logo}" alt="Logo">` : ''}
+      ${meta.logo ? `<img class="logo" src="${esc(meta.logo)}" alt="Logo">` : ''}
     </div>
     <div class="cover-meta">
       <div class="meta-box"><span>Empresa</span><strong>${esc(meta.empresa||'')}</strong></div>
@@ -6656,7 +6670,7 @@ function exportConceptBreakdownsPdf_OLD_UNUSED() {
         <div class="eyebrow">Proyecto Emma / Analisis de precios unitarios</div>
         <h1>Desglose de precios unitarios</h1>
       </div>
-      ${meta.logo ? `<img class="logo" src="${meta.logo}" alt="Logo">` : ''}
+      ${meta.logo ? `<img class="logo" src="${esc(meta.logo)}" alt="Logo">` : ''}
     </div>
     <div class="cover-meta">
       <div class="meta-box"><span>Empresa</span><strong>${escHtml(meta.empresa || '')}</strong></div>
@@ -6854,7 +6868,7 @@ function printBasicos() {
       <div>
         <h1>Análisis de básicos y cuadrillas — ${escHtml(filterLabel)}</h1>
       </div>
-      ${meta.logo ? `<img class="logo" src="${meta.logo}" alt="Logo">` : ''}
+      ${meta.logo ? `<img class="logo" src="${esc(meta.logo)}" alt="Logo">` : ''}
     </div>
     <div class="cover-meta">
       <div class="meta-box"><span>Empresa</span><strong>${escHtml(meta.empresa || '—')}</strong></div>

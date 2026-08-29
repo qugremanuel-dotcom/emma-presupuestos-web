@@ -67,12 +67,33 @@ migrateFromTmp("/tmp/emma_users_extra.json", path.join(DATA_DIR, "users_extra.js
 // Si un archivo quedó corrupto (proceso matado a mitad de escritura), NO se
 // arranca "limpio" pisándolo: se aparta con sello de tiempo para rescate manual.
 function loadJSONStore(file, fallback) {
+  let texto;
   try {
-    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!fs.existsSync(file)) return fallback;
+    texto = fs.readFileSync(file, "utf8");
   } catch (e) {
+    // No es corrupción sino un problema de acceso (EACCES, EBUSY por antivirus,
+    // EMFILE...). Arrancar vacío haría que el primer guardado pise datos buenos:
+    // es preferible no arrancar y que el reinicio automático lo reintente.
+    console.error(`[Emma] FATAL: no se pudo leer ${path.basename(file)} (${e.code || e.message}).`);
+    console.error("[Emma] Se aborta el arranque para no sobrescribir datos existentes. Revisa permisos o el volumen.");
+    process.exit(1);
+  }
+  try {
+    return JSON.parse(texto);
+  } catch (e) {
+    // Contenido ilegible: proceso cortado a media escritura. Se aparta para
+    // rescate en vez de dejar que el siguiente guardado lo pise.
     const aparte = `${file}.corrupt-${Date.now()}`;
-    try { fs.renameSync(file, aparte); } catch {}
-    console.error(`[Emma] ${path.basename(file)} ilegible (${e.message}). Apartado en ${aparte}; se continúa con almacén vacío.`);
+    try {
+      fs.renameSync(file, aparte);
+      console.error(`[Emma] ${path.basename(file)} corrupto (${e.message}). Apartado en ${aparte}; se continúa con almacén vacío.`);
+    } catch (e2) {
+      // Si ni siquiera se puede apartar, seguir escribiría encima del archivo
+      // dañado y borraría lo que aún fuera rescatable.
+      console.error(`[Emma] FATAL: ${path.basename(file)} está corrupto y no se pudo apartar (${e2.code || e2.message}).`);
+      process.exit(1);
+    }
   }
   return fallback;
 }
@@ -818,14 +839,23 @@ const server = http.createServer(async (req, res) => {
       }
       id = crypto.randomUUID();
     }
-    // Candado optimista: si el cliente dice qué versión conocía y ya no es la
-    // actual (otra computadora guardó en medio), se rechaza salvo force.
-    if (existe && body.expect && mine[id].updated_at !== body.expect && !body.force) {
-      return sendJSON(res, 409, {
-        error: "Este presupuesto fue modificado desde otra computadora.",
-        conflict: true,
-        updated_at: mine[id].updated_at,
-      });
+    // Candado optimista. Sobrescribir un proyecto existente exige declarar qué
+    // versión se conocía: sin ese dato no hay forma de saber si alguien más
+    // guardó en medio, así que se pide confirmación en vez de pisar a ciegas.
+    if (existe && !body.force) {
+      const actual = mine[id].updated_at;
+      if (!body.expect) {
+        return sendJSON(res, 409, {
+          error: "No se pudo verificar si este presupuesto cambió desde otra computadora.",
+          conflict: true, unknown: true, updated_at: actual,
+        });
+      }
+      if (actual !== body.expect) {
+        return sendJSON(res, 409, {
+          error: "Este presupuesto fue modificado desde otra computadora.",
+          conflict: true, updated_at: actual,
+        });
+      }
     }
     const previo = existe ? mine[id] : undefined;
     mine[id] = {
