@@ -2115,7 +2115,7 @@ async function startInit() {
     // __partidas: partidas extra (fuera de A–R) definidas en la base de datos
     DB_PARTIDAS = Array.isArray(DB.__partidas) ? DB.__partidas : [];
     delete DB.__partidas;
-    buildFlatIndex();
+    // El índice se construye más abajo, cuando PARTIDAS ya es definitiva.
   } catch (err) {
     showLoadError('Error cargando el catálogo: ' + err.message);
     return;
@@ -2144,6 +2144,7 @@ async function startInit() {
   // Después de load(): las partidas propias del usuario tienen prioridad sobre
   // las de la base si coincide la letra, igual que al restaurar un respaldo.
   applyDbPartidas();
+  buildFlatIndex(); // con PARTIDAS ya definitiva
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
@@ -2409,25 +2410,19 @@ function partidasParaSnapshot() {
   return [...propias, ...extra];
 }
 
+// Índice del buscador. Se recorre PARTIDAS y no el catálogo: la letra con la
+// que aquí se marca un concepto es la misma con la que se archivará al
+// agregarlo, así que indexar una partida que no está en PARTIDAS lo dejaría
+// guardado bajo la partida de otra letra. Debe reconstruirse siempre que
+// PARTIDAS cambie (ver las llamadas en startInit y restoreSnapshot).
 function buildFlatIndex() {
   FLAT.length = 0;
   const agregada = new Set();
-  const add = (letter, name) => {
+  PARTIDAS.forEach(([letter, name]) => {
     if (agregada.has(name)) return;
     agregada.add(name);
     (DB[name] || []).forEach(it => FLAT.push({ ...it, _letter: letter, _name: name }));
-  };
-  // Primero en el orden de las partidas, que es el que ve el usuario.
-  PARTIDAS.forEach(([letter, name]) => add(letter, name));
-  // Y luego lo que el catálogo traiga y aún no esté: el buscador no puede
-  // depender de si PARTIDAS ya incorporó las partidas de la base.
-  DB_PARTIDAS.forEach(([letter, name]) => add(letter, name));
-  Object.keys(DB).forEach(name => add(letraDePartida(name), name));
-}
-// Letra de una partida por su nombre; '' si el catálogo trae una desconocida.
-function letraDePartida(name) {
-  const p = PARTIDAS.find(([, n]) => n === name) || DB_PARTIDAS.find(([, n]) => n === name);
-  return p ? p[0] : '';
+  });
 }
 
 // ========================================================
@@ -2545,6 +2540,8 @@ function restoreSnapshot(data) {
     STATE.customPartidas = data.customPartidas;
   }
   applyDbPartidas(); // reponer las partidas de la base tras el reset de PARTIDAS
+  // El respaldo pudo traer partidas propias: el buscador debe reflejarlas.
+  if (Object.keys(DB).length) buildFlatIndex();
   const rows = {};
   PARTIDAS.forEach(([l]) => rows[l] = Array.isArray(data.rows[l]) ? data.rows[l] : []);
   STATE.rows = rows;
