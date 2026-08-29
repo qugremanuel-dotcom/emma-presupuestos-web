@@ -2167,6 +2167,7 @@ async function startInit() {
   // las de la base si coincide la letra, igual que al restaurar un respaldo.
   applyDbPartidas();
   buildFlatIndex(); // con PARTIDAS ya definitiva
+  syncInsumoDescriptions(); // presupuestos guardados antes de un cambio de nombre
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
@@ -2582,6 +2583,7 @@ function restoreSnapshot(data) {
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
+  syncInsumoDescriptions(); // el respaldo pudo guardarse con nombres anteriores
   save();
   hydrateMeta();
   hydrateFasar();
@@ -3280,6 +3282,26 @@ function applyCustomMaterialPrices() {
     });
     I_DICT[basicCod][2] = round2(total);
   });
+}
+
+// Cada presupuesto guarda la descripción de sus insumos junto con la fila. Si
+// después se precisa un nombre en el catálogo, un presupuesto viejo seguiría
+// mostrando el texto anterior, y en un mismo documento podrían convivir dos
+// nombres para el mismo código. Se resincroniza al abrir, sin tocar los
+// insumos que el usuario escribió o editó a mano (ins.custom) ni ningún
+// importe: solo el texto.
+function syncInsumoDescriptions() {
+  let n = 0;
+  PARTIDAS.forEach(([l]) => {
+    (STATE.rows[l] || []).forEach(r => {
+      (r.insumos || []).forEach(ins => {
+        if (ins.custom || !ins.cod) return;
+        const d = I_DICT[ins.cod];
+        if (d && d[0] && ins.c !== d[0]) { ins.c = d[0]; n++; }
+      });
+    });
+  });
+  return n;
 }
 
 // Propaga precios de materiales a I_DICT, básicos, filas del presupuesto y recalcula
