@@ -1237,6 +1237,21 @@ table.basico-parts tr:last-child td { border-bottom: none; }
   font-weight: 700;
   cursor: help;
 }
+.basico-cod {
+  font-family: ui-monospace, monospace;
+  color: var(--gold-dk);
+  cursor: help;
+}
+/* El código distingue insumos con descripción idéntica (p. ej. dos versiones
+   del mismo básico con distinto rendimiento). */
+.ins-row-cod {
+  display: block;
+  margin-top: 2px;
+  padding-left: 7px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--ink-4, #888780);
+}
 .basico-num {
   text-align: right;
   font-family: ui-monospace, monospace;
@@ -4035,6 +4050,7 @@ function renderInsumosPanel() {
       </select></td>
       <td class="ins-desc">
         <input type="text" class="ins-inline-input" list="insumoCatalogOptions" value="${escHtml(catalogValue)}" placeholder="Buscar en base o escribir insumo nuevo" oninput="updateInsumoField(${idx},${k},'c',this.value)" onchange="applyInsumoCatalogPick(${idx},${k},this.value)">
+        ${i.cod ? `<span class="ins-row-cod" title="Código del insumo en la base">${escHtml(i.cod)}</span>` : ''}
       </td>
       <td><input type="text" class="ins-inline-input" value="${escHtml(un || 'PZA')}" placeholder="UN" oninput="updateInsumoField(${idx},${k},'u',this.value)"></td>
       <td><input type="number" inputmode="decimal" class="ins-cell-input" step="any" min="0" value="${i.q}" oninput="onInsumoChange(${idx},${k},'q',this.value)"></td>
@@ -4399,7 +4415,7 @@ function renderBasicosList() {
     return `<article class="basico-card">
       <div class="basico-card-head">
         <div>
-          <div class="basico-code">${escHtml(b.kind === 'cuadrilla' ? 'Cuadrilla' : 'Básico de obra')} · ${escHtml(b.unit)}</div>
+          <div class="basico-code">${escHtml(b.kind === 'cuadrilla' ? 'Cuadrilla' : 'Básico de obra')} · ${escHtml(b.unit)}${b.cod ? ` · <span class="basico-cod" title="Hay básicos con la misma descripción y distinto rendimiento: el código los distingue">${escHtml(b.cod)}</span>` : ''}</div>
           <div class="basico-desc">${escHtml(b.desc)}</div>
         </div>
         <div class="basico-price">${fmt(b.total)}</div>
