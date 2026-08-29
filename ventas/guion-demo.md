@@ -20,9 +20,16 @@ Usa su respuesta para adaptar el ejemplo: remodelacion, casa, acabados, electric
 4. Cambia una cantidad y presiona "Calcular presupuesto".
 5. Senala el costo directo, indirectos, imprevistos, utilidad y total.
 6. Di: "En la app completa esto se alimenta desde una base de 6,185 conceptos."
-7. Abre `app/presupuesto_emma.html`.
-8. Muestra buscador, partidas, insumos, FASAR e indirectos.
-9. Termina con una salida: Excel, analisis P.U. o impresion.
+7. Entra a la app con tu cuenta (emma-presupuestos.com, boton Ingresar).
+   Ten la sesion iniciada antes de la llamada: la app pide correo y clave.
+8. Muestra el menu de modulos de la izquierda: Presupuesto, Insumos, Basicos,
+   FASAR e Indirectos. Di: "Cada modulo es una parte del presupuesto."
+9. Agrega un concepto con el buscador y captura cantidades con el teclado:
+   escribe, flecha abajo, escribe. Di: "Se captura como en Excel, sin soltar el teclado."
+10. Abre "Mis presupuestos" y di: "Tus obras quedan en tu cuenta, las abres
+    desde cualquier computadora y puedes duplicar una para cotizar variantes."
+11. Termina con una salida: Excel, analisis P.U. o Imprimir.
+    Al imprimir, senala la caratula de licitacion con las firmas.
 
 ## Frases clave
 

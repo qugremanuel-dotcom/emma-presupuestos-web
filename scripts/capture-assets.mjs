@@ -1,38 +1,112 @@
+// ============================================================
+// capture-assets.mjs — Regenera los screenshots de assets/
+//
+// Requiere Playwright:  npm i -D playwright
+// Uso:                  node scripts/capture-assets.mjs
+//
+// Landing y demo se capturan como archivos locales.
+// La app requiere servidor + sesión, así que el script levanta
+// server.js en un puerto libre con una licencia de prueba,
+// inicia sesión y luego captura.
+// ============================================================
 import { mkdir } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
-const require = createRequire('C:/Users/QUGR_/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.60.0/node_modules/playwright/index.js');
-const { chromium } = require('playwright');
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch {
+  console.error('Falta Playwright. Instálalo con:\n\n  npm i -D playwright\n');
+  process.exit(1);
+}
 
-const root = resolve('.');
+const root   = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = resolve(root, 'assets', 'screenshots');
 await mkdir(outDir, { recursive: true });
 
-const browser = await chromium.launch({
-  headless: true,
-  executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+// ── Licencia de prueba (mismo algoritmo que server.js y el HTML) ────────────
+const SALT = 'emPrj-X7Q2-2024';
+const fnv = s => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h;
+};
+const cc = '0A3F';
+const yy = String((new Date().getFullYear() + 1) % 100).padStart(2, '0');
+const KEY = `EMMA-${cc}-${yy}-${(fnv(cc + yy + SALT) & 0xFFFFFF).toString(16).toUpperCase().padStart(6, '0')}`;
+const EMAIL = 'demo@emma-presupuestos.com';
+const PORT  = 8199;
+
+// ── Levantar el servidor ────────────────────────────────────────────────────
+const server = spawn(process.execPath, [resolve(root, 'server.js')], {
+  cwd: root,
+  env: {
+    ...process.env,
+    PORT: String(PORT),
+    USERS_DB: JSON.stringify([{ email: EMAIL, key: KEY, name: 'Despacho Demo', active: true, admin: true }]),
+  },
+  stdio: 'ignore',
 });
+const stopServer = () => { try { server.kill(); } catch {} };
+process.on('exit', stopServer);
+
+// Esperar a que responda
+await (async () => {
+  for (let i = 0; i < 40; i++) {
+    try { await fetch(`http://localhost:${PORT}/`); return; }
+    catch { await new Promise(r => setTimeout(r, 250)); }
+  }
+  console.error(`El servidor no respondió en el puerto ${PORT}.`);
+  stopServer();
+  process.exit(1);
+})();
+
+const browser = await chromium.launch({ headless: true, channel: 'msedge' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 980 }, deviceScaleFactor: 1 });
 
-async function shot(path, file, options = {}) {
-  await page.goto(`file:///${resolve(root, path).replaceAll('\\', '/')}`);
-  await page.waitForLoadState('load');
-  await page.screenshot({ path: resolve(outDir, file), fullPage: options.fullPage ?? false });
+const fileUrl = p => `file:///${resolve(root, p).replaceAll('\\', '/')}`;
+
+async function shot(url, file, fullPage = false) {
+  await page.goto(url, { waitUntil: 'load' });
+  await page.screenshot({ path: resolve(outDir, file), fullPage });
+  console.log('  ✓', file);
 }
 
-await shot('index.html', '01-landing-emma.png', { fullPage: false });
-await shot('demo.html', '02-demo-presupuesto.png', { fullPage: false });
+console.log('Capturando…');
 
-await page.goto(`file:///${resolve(root, 'demo.html').replaceAll('\\', '/')}`);
-await page.waitForLoadState('load');
-await page.locator('button', { hasText: 'Agregar concepto demo' }).click();
-await page.locator('button', { hasText: 'Calcular presupuesto' }).click();
-await page.screenshot({ path: resolve(outDir, '03-demo-concepto-agregado.png'), fullPage: false });
+// 1 · Landing
+await shot(fileUrl('index.html'), '01-landing-emma.png');
 
-await page.goto(`file:///${resolve(root, 'app', 'presupuesto_emma.html').replaceAll('\\', '/')}`);
-await page.waitForLoadState('load');
-await page.screenshot({ path: resolve(outDir, '04-app-completa-acceso.png'), fullPage: false });
+// 2 · Demo pública
+await shot(fileUrl('demo.html'), '02-demo-presupuesto.png');
+
+// 3 · Demo con el presupuesto calculado
+await page.goto(fileUrl('demo.html'), { waitUntil: 'load' });
+await page.getByRole('button', { name: 'Calcular presupuesto' }).click();
+await page.waitForTimeout(600);
+await page.screenshot({ path: resolve(outDir, '03-demo-concepto-agregado.png') });
+console.log('  ✓ 03-demo-concepto-agregado.png');
+
+// 4 · App completa (requiere sesión)
+await page.goto(`http://localhost:${PORT}/login`, { waitUntil: 'load' });
+await page.evaluate(async ({ email, key }) => {
+  await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, key }),
+  });
+}, { email: EMAIL, key: KEY });
+await page.goto(`http://localhost:${PORT}/app`, { waitUntil: 'load' });
+await page.waitForFunction(
+  () => document.getElementById('emma-loading')?.style.display === 'none',
+  null, { timeout: 30000 }
+);
+await page.screenshot({ path: resolve(outDir, '04-app-completa-acceso.png') });
+console.log('  ✓ 04-app-completa-acceso.png');
 
 await browser.close();
-console.log(outDir);
+stopServer();
+console.log('\nListo →', outDir);
