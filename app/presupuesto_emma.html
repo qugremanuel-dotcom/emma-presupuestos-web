@@ -655,7 +655,9 @@ table.insumos th.c { text-align: center; }
 }
 .ins-panel-bg.open { display: flex; }
 .ins-panel {
-  width: min(780px, calc(100vw - 34px));
+  /* Debe caber la tabla del APU completa (min-width 980 + 44 de márgenes):
+     si el Importe queda fuera de vista, el análisis no se entiende. */
+  width: min(1040px, calc(100vw - 34px));
   height: 100vh;
   background: white;
   box-shadow: -18px 0 45px rgba(0,0,0,0.28);
@@ -1230,6 +1232,11 @@ table.basico-parts td {
   padding: 7px 9px;
 }
 table.basico-parts tr:last-child td { border-bottom: none; }
+.basico-op {
+  color: var(--gold-dk);
+  font-weight: 700;
+  cursor: help;
+}
 .basico-num {
   text-align: right;
   font-family: ui-monospace, monospace;
@@ -4384,7 +4391,7 @@ function renderBasicosList() {
         <td><span class="ins-list-type ${typeCls}">${escHtml(typeText)}</span></td>
         <td>${escHtml(part.c || '')}</td>
         <td>${escHtml(part.u || '')}</td>
-        <td class="basico-num">${Number(part.q || 0).toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
+        <td class="basico-num">${part.op === '/' ? '<span class="basico-op" title="El costo se divide entre esta cantidad (rendimiento)">÷</span> ' : ''}${Number(part.q || 0).toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
         <td class="basico-num">${fmt(cost)}</td>
         <td class="basico-num"><strong>${fmt(amount)}</strong></td>
       </tr>`;
