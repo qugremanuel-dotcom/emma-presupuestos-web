@@ -18,17 +18,18 @@ let DATA_INSUMOS   = null;
   try {
     if (fs.existsSync(cFile)) {
       DATA_CONCEPTOS = JSON.parse(fs.readFileSync(cFile, "utf8"));
-      const nP = Object.keys(DATA_CONCEPTOS).length;
-      const nC = Object.values(DATA_CONCEPTOS).reduce((s, a) => s + a.length, 0);
-      console.log(`[Emma] Conceptos: ${nP} partidas · ${nC} conceptos`);
-    } else { console.warn("[Emma] data/conceptos.json no encontrado — ejecuta scripts/extract-db.js"); }
+      // Las claves "__*" son metadatos (p. ej. __partidas), no partidas
+      const partKeys = Object.keys(DATA_CONCEPTOS).filter(k => !k.startsWith("__"));
+      const nC = partKeys.reduce((s, k) => s + DATA_CONCEPTOS[k].length, 0);
+      console.log(`[Emma] Conceptos: ${partKeys.length} partidas · ${nC} conceptos`);
+    } else { console.warn("[Emma] data/conceptos.json no encontrado — genera la base con scripts/import-db.mjs"); }
   } catch (e) { console.error("[Emma] Error cargando conceptos:", e.message); }
   try {
     if (fs.existsSync(iFile)) {
       DATA_INSUMOS = JSON.parse(fs.readFileSync(iFile, "utf8"));
       const nD = Object.keys(DATA_INSUMOS.dict || {}).length;
       console.log(`[Emma] Insumos: ${nD} entradas en dict`);
-    } else { console.warn("[Emma] data/insumos.json no encontrado — ejecuta scripts/extract-db.js"); }
+    } else { console.warn("[Emma] data/insumos.json no encontrado — genera la base con scripts/import-db.mjs"); }
   } catch (e) { console.error("[Emma] Error cargando insumos:", e.message); }
 })();
 const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
@@ -62,6 +63,34 @@ function migrateFromTmp(oldPath, newPath) {
 migrateFromTmp("/tmp/emma_devices.json", DEVICES_FILE);
 migrateFromTmp("/tmp/emma_users_extra.json", path.join(DATA_DIR, "users_extra.json"));
 
+// ─── Almacenes JSON: lectura con cuarentena y escritura atómica ──────────────
+// Si un archivo quedó corrupto (proceso matado a mitad de escritura), NO se
+// arranca "limpio" pisándolo: se aparta con sello de tiempo para rescate manual.
+function loadJSONStore(file, fallback) {
+  try {
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    const aparte = `${file}.corrupt-${Date.now()}`;
+    try { fs.renameSync(file, aparte); } catch {}
+    console.error(`[Emma] ${path.basename(file)} ilegible (${e.message}). Apartado en ${aparte}; se continúa con almacén vacío.`);
+  }
+  return fallback;
+}
+// Escribe a un temporal y renombra: el archivo final nunca queda a medias.
+// Devuelve false si no se pudo persistir (disco lleno, solo lectura, etc.).
+function saveJSONStore(file, data) {
+  const tmp = `${file}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data), "utf8");
+    fs.renameSync(tmp, file);
+    return true;
+  } catch (e) {
+    console.error(`[Emma] Error guardando ${path.basename(file)}:`, e.message);
+    try { fs.unlinkSync(tmp); } catch {}
+    return false;
+  }
+}
+
 // ─── Base de usuarios (variable de entorno USERS_DB como JSON array) ─────────
 // Formato: [{"email":"cliente@empresa.com","key":"EMMA-XXXX-YY-HHHHHH","name":"Nombre","active":true}]
 let USERS = [];
@@ -73,16 +102,14 @@ try {
 
 // ─── Extra users (creados vía pago) ──────────────────────────────────────────
 const EXTRA_USERS_FILE = path.join(DATA_DIR, "users_extra.json");
-let extraUsers = [];
-try {
-  if (fs.existsSync(EXTRA_USERS_FILE))
-    extraUsers = JSON.parse(fs.readFileSync(EXTRA_USERS_FILE, "utf8"));
-} catch {}
+let extraUsers = loadJSONStore(EXTRA_USERS_FILE, []);
 for (const u of extraUsers) {
   if (!USERS.some(e => e.email.toLowerCase() === u.email.toLowerCase())) USERS.push(u);
 }
 function saveExtraUsers() {
-  try { fs.writeFileSync(EXTRA_USERS_FILE, JSON.stringify(extraUsers), "utf8"); } catch {}
+  if (!saveJSONStore(EXTRA_USERS_FILE, extraUsers)) {
+    console.error("[Emma] CRITICO: no se pudo persistir un usuario de pago; quedará solo en memoria hasta el próximo reinicio.");
+  }
 }
 function addPaidUser(user) {
   const em = user.email.toLowerCase();
@@ -96,14 +123,9 @@ function addPaidUser(user) {
 const PROY_FILE  = path.join(DATA_DIR, "proyectos.json");
 const MAX_PROYECTOS  = 20;
 const MAX_PROY_BYTES = 5 * 1024 * 1024; // 5 MB por request
-let proyectos = {};
-try {
-  if (fs.existsSync(PROY_FILE)) proyectos = JSON.parse(fs.readFileSync(PROY_FILE, "utf8"));
-} catch (e) { console.error("[Emma] Error leyendo proyectos.json:", e.message); }
+let proyectos = loadJSONStore(PROY_FILE, {});
 function saveProyectos() {
-  try {
-    fs.writeFileSync(PROY_FILE, JSON.stringify(proyectos), "utf8");
-  } catch (e) { console.error("[Emma] Error guardando proyectos.json:", e.message); }
+  return saveJSONStore(PROY_FILE, proyectos);
 }
 function userProyectos(email) {
   const em = email.toLowerCase();
@@ -137,15 +159,11 @@ function validateKey(key) {
 
 // ─── Registro de dispositivos ─────────────────────────────────────────────────
 // email → [deviceId, ...]  (máx. MAX_DEVICES por usuario)
-// Persiste en /tmp entre requests; se limpia en cada redeploy.
-let deviceRegistry = {};
-try {
-  if (fs.existsSync(DEVICES_FILE))
-    deviceRegistry = JSON.parse(fs.readFileSync(DEVICES_FILE, "utf8"));
-} catch {}
+// Persiste en DATA_DIR con escritura atómica.
+let deviceRegistry = loadJSONStore(DEVICES_FILE, {});
 
 function saveDevices() {
-  try { fs.writeFileSync(DEVICES_FILE, JSON.stringify(deviceRegistry), "utf8"); } catch {}
+  saveJSONStore(DEVICES_FILE, deviceRegistry);
 }
 function getDevices(email)          { return deviceRegistry[email.toLowerCase()] || []; }
 function deviceCount(email)         { return getDevices(email).length; }
@@ -223,10 +241,32 @@ const MIME = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function readBody(req, maxBytes = 16_384) {
   return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", chunk => { body += chunk; if (body.length > maxBytes) req.destroy(); });
-    req.on("end", () => resolve(body));
-    req.on("error", reject);
+    // Acumular Buffers y decodificar al final: concatenar strings por chunk
+    // parte secuencias UTF-8 multibyte en las fronteras (ó → ��) y corrompe
+    // silenciosamente los textos guardados.
+    const chunks = [];
+    let size = 0;
+    let excedido = false;
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (excedido) {
+        // Ya rechazado: descartar el resto, con tope duro por si el cliente no corta.
+        if (size > maxBytes * 2) req.destroy();
+        return;
+      }
+      if (size > maxBytes) {
+        excedido = true;
+        chunks.length = 0;
+        // reject ANTES de descartar: así el handler puede responder 400 con
+        // mensaje claro en lugar de que el cliente vea un reset de conexión.
+        reject(Object.assign(new Error("Cuerpo demasiado grande."), { tooLarge: true }));
+        req.resume();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => { if (!excedido) resolve(Buffer.concat(chunks).toString("utf8")); });
+    req.on("error", err => { if (!excedido) reject(err); });
   });
 }
 
@@ -747,18 +787,19 @@ const server = http.createServer(async (req, res) => {
         id,
         name: p.name,
         updated_at: p.updated_at,
-        size_bytes: JSON.stringify(p.data || {}).length,
+        size_bytes: p.size ?? JSON.stringify(p.data || {}).length,
       }))
       .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
     return sendJSON(res, 200, { ok: true, proyectos: list, max: MAX_PROYECTOS });
   }
 
-  // ── POST /api/proyectos — guardar/actualizar { id?, name, data } ───────────
+  // ── POST /api/proyectos — guardar/actualizar { id?, name, data, expect?, force? }
   if (method === "POST" && pathname === "/api/proyectos") {
     if (!session) return sendJSON(res, 401, { error: "No autenticado." });
     let body = {};
-    try { body = JSON.parse(await readBody(req, MAX_PROY_BYTES)); } catch {
-      return sendJSON(res, 400, { error: "Cuerpo inválido o demasiado grande (máx. 5 MB)." });
+    try { body = JSON.parse(await readBody(req, MAX_PROY_BYTES)); } catch (e) {
+      return sendJSON(res, e && e.tooLarge ? 413 : 400,
+        { error: e && e.tooLarge ? "El presupuesto excede 5 MB (¿logo muy pesado?)." : "Cuerpo inválido." });
     }
     const name = String(body.name || "").trim().slice(0, 120);
     if (!name) return sendJSON(res, 400, { error: "Nombre del presupuesto requerido." });
@@ -766,15 +807,38 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 400, { error: "Datos del presupuesto requeridos." });
     }
     const mine = userProyectos(session.email);
-    let id = String(body.id || "").trim();
-    if (!id || !mine[id]) {
+    // El id solo se reutiliza si es un UUID propio ya existente (hasOwn evita
+    // que nombres del prototipo como 'toString' pasen como "existentes").
+    let id = String(body.id || "").trim().toLowerCase();
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const existe = UUID_RE.test(id) && Object.hasOwn(mine, id);
+    if (!existe) {
       if (Object.keys(mine).length >= MAX_PROYECTOS) {
         return sendJSON(res, 409, { error: `Límite de ${MAX_PROYECTOS} presupuestos alcanzado. Elimina alguno para continuar.` });
       }
       id = crypto.randomUUID();
     }
-    mine[id] = { name, updated_at: new Date().toISOString(), data: body.data };
-    saveProyectos();
+    // Candado optimista: si el cliente dice qué versión conocía y ya no es la
+    // actual (otra computadora guardó en medio), se rechaza salvo force.
+    if (existe && body.expect && mine[id].updated_at !== body.expect && !body.force) {
+      return sendJSON(res, 409, {
+        error: "Este presupuesto fue modificado desde otra computadora.",
+        conflict: true,
+        updated_at: mine[id].updated_at,
+      });
+    }
+    const previo = existe ? mine[id] : undefined;
+    mine[id] = {
+      name,
+      updated_at: new Date().toISOString(),
+      size: Buffer.byteLength(JSON.stringify(body.data)),
+      data: body.data,
+    };
+    if (!saveProyectos()) {
+      // No mentir: revertir memoria y avisar. El cliente conserva su copia local.
+      if (previo === undefined) delete mine[id]; else mine[id] = previo;
+      return sendJSON(res, 503, { error: "No se pudo guardar en el servidor (almacenamiento no disponible). Tu copia local sigue intacta; intenta de nuevo o descarga un respaldo." });
+    }
     return sendJSON(res, 200, { ok: true, id, name, updated_at: mine[id].updated_at });
   }
 
@@ -790,8 +854,12 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 200, { ok: true, id: m[1], name: p.name, updated_at: p.updated_at, data: p.data });
       }
       if (method === "DELETE") {
+        const previo = mine[m[1]];
         delete mine[m[1]];
-        saveProyectos();
+        if (!saveProyectos()) {
+          mine[m[1]] = previo;
+          return sendJSON(res, 503, { error: "No se pudo eliminar (almacenamiento no disponible). Intenta de nuevo." });
+        }
         return sendJSON(res, 200, { ok: true });
       }
       res.writeHead(405); res.end(); return;

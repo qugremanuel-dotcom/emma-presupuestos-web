@@ -67,10 +67,30 @@ const norm  = s => String(s ?? '').trim();
 const upper = s => norm(s).toUpperCase();
 const num   = v => {
   if (v === null || v === undefined || v === '') return 0;
-  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[$,\s]/g, ''));
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  let s = String(v).trim();
+  // '12,50' (coma decimal) → 12.50 — sin esto se leería como 1250
+  if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  const n = parseFloat(s.replace(/[$,\s]/g, ''));
   return Number.isFinite(n) ? n : 0;
 };
+// Celda con contenido que se convertiría en 0 sin ser un cero explícito
+const esNumeroRaro = v => {
+  if (v === null || v === undefined || v === '' || typeof v === 'number') return false;
+  const s = String(v).trim();
+  return num(s) === 0 && !/^[-+]?0*([.,]0*)?$/.test(s);
+};
 const round2 = n => Math.round(n * 100) / 100;
+
+// Letras fijas de la app (deben coincidir con PARTIDAS del HTML)
+const LETRAS_FIJAS = new Map([
+  ['A','PRELIMINARES'],['B','DESMANTELAMIENTO'],['C','DEMOLICIONES'],
+  ['D','CIMENTACIÓN'],['E','CISTERNA'],['F','ESTRUCTURA'],
+  ['G','ALBAÑILERÍA'],['H','MUROS Y PLAFONES'],['I','REGISTROS'],
+  ['J','ESCALERAS'],['K','ACABADOS'],['L','INSTALACIÓN HIDROSANITARIA'],
+  ['M','INSTALACIÓN ELÉCTRICA'],['N','INSTALACIÓN DE GAS'],['O','HERRERÍA'],
+  ['P','CANCELERÍA'],['Q','CARPINTERÍA'],['R','MUEBLES DE BAÑO'],
+]);
 
 // Localiza columnas por nombre de encabezado, tolerando acentos y mayúsculas
 const deacc = s => upper(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -156,7 +176,7 @@ const iOp   = pick(iMap, 'Operador', 'Op');
 const iCant = pick(iMap, 'Cantidad insumo', 'Cantidad');
 const iImp  = pick(iMap, 'Importe insumo', 'Importe');
 
-for (const [nom, idx] of [['Código concepto', iCon], ['Código insumo', iCod], ['Tipo insumo', iTipo]]) {
+for (const [nom, idx] of [['Código concepto', iCon], ['Código insumo', iCod], ['Tipo insumo', iTipo], ['Costo Insumo', iCos], ['Cantidad insumo', iCant]]) {
   if (idx < 0) { console.error(`La hoja "Insumos por concepto" no tiene la columna "${nom}".`); process.exit(1); }
 }
 
@@ -170,6 +190,9 @@ function agregarInsumo(hojaNom, fila, conceptoCod, tipoRaw, cod, desc, uni, cost
   const operador = norm(op) === '/' ? '/' : '*';
   const q = num(cant);
   const c = num(costo);
+  if (esNumeroRaro(costo)) avisos.push(`  ${hojaNom} fila ${fila}: costo no numérico "${costo}" → se usa 0`);
+  if (esNumeroRaro(cant))  avisos.push(`  ${hojaNom} fila ${fila}: cantidad no numérica "${cant}" → se usa 0`);
+  if (operador === '/' && q === 0) avisos.push(`  ${hojaNom} fila ${fila}: operador ÷ con cantidad 0 → importe 0`);
   // Se respeta el importe capturado; solo se calcula cuando falta. Si el
   // capturado se aleja del cálculo, se avisa: suele ser un error de captura.
   const calc = round2(operador === '/' ? (q === 0 ? 0 : c / q) : c * q);
@@ -180,7 +203,15 @@ function agregarInsumo(hojaNom, fila, conceptoCod, tipoRaw, cod, desc, uni, cost
   }
   if (!dictNuevo.has(cod)) dictNuevo.set(cod, [norm(desc) || cod, upper(uni), c]);
   if (!breakdownNuevo.has(conceptoCod)) breakdownNuevo.set(conceptoCod, []);
-  breakdownNuevo.get(conceptoCod).push({ t, cod, op: operador, q, i: importe });
+  const lista = breakdownNuevo.get(conceptoCod);
+  // El mismo insumo puede aparecer 2 veces con cantidades distintas (válido en
+  // un APU); solo es sospechosa la fila EXACTAMENTE duplicada.
+  if (lista.some(x => x.cod === cod && x.t === t && x.op === operador && x.q === q && x._c === c)) {
+    avisos.push(`  ${hojaNom} fila ${fila}: fila idéntica duplicada (insumo ${cod} en concepto ${conceptoCod}) — se importan ambas`);
+  }
+  // _c: costo crudo de la línea; tras consolidar el diccionario se convierte
+  // en 'cs' cuando difiere del costo de diccionario (¡campo que la app usa!)
+  lista.push({ t, cod, op: operador, q, i: importe, _c: c });
 }
 
 sIns.slice(1).forEach((r, i) => {
@@ -194,6 +225,7 @@ sIns.slice(1).forEach((r, i) => {
 
 // ── Hoja de básicos (opcional) ──────────────────────────────────────────────
 let basicosCount = 0;
+const basicosCods = new Set();
 if (sBas) {
   const bMap  = columnMap(sBas[0] || []);
   const bCod  = pick(bMap, 'Código básico', 'Codigo basico');
@@ -206,7 +238,7 @@ if (sBas) {
   const bCant = pick(bMap, 'Cantidad');
   const bImp  = pick(bMap, 'Importe');
   if (bCod >= 0 && bICod >= 0) {
-    const antes = breakdownNuevo.size;
+    const antesKeys = new Set(breakdownNuevo.keys());
     sBas.slice(1).forEach((r, i) => {
       const fila = i + 2;
       if (!r || r.every(v => v === null || v === '')) return;
@@ -215,7 +247,8 @@ if (sBas) {
       agregarInsumo('Basicos', fila, basico,
         r[bTipo], norm(r[bICod]), r[bIns], r[bUni], r[bCos], r[bOp], r[bCant], r[bImp]);
     });
-    basicosCount = breakdownNuevo.size - antes;
+    for (const k of breakdownNuevo.keys()) if (!antesKeys.has(k)) basicosCods.add(k);
+    basicosCount = basicosCods.size;
   } else {
     avisos.push('  La hoja "Basicos" no tiene las columnas esperadas; se omitió.');
   }
@@ -224,15 +257,54 @@ if (sBas) {
 // ── Cargar lo existente y fusionar ──────────────────────────────────────────
 const conceptosBase = (!replace && existsSync(F_CONC)) ? JSON.parse(readFileSync(F_CONC, 'utf8')) : {};
 const insumosBase   = (!replace && existsSync(F_INS))  ? JSON.parse(readFileSync(F_INS, 'utf8'))  : { dict: {}, breakdown: {} };
+// Metadatos de partidas extra (letra→nombre) heredados de corridas anteriores
+const partidasPrevias = Array.isArray(conceptosBase.__partidas) ? conceptosBase.__partidas : [];
+delete conceptosBase.__partidas;
 
 // Índice de lo existente: cod → partida
 const partidaDe = new Map();
 for (const [par, arr] of Object.entries(conceptosBase)) for (const c of arr) partidaDe.set(c.cod, par);
 
+// ── Validar nombres y letras de partida ─────────────────────────────────────
+// La app localiza cada partida por su nombre EXACTO: un acento distinto
+// crearía una partida "gemela" invisible en lugar de alimentar la correcta.
+const nombresConocidos = new Set([...LETRAS_FIJAS.values(), ...Object.keys(conceptosBase), ...partidasPrevias.map(p => p[1])]);
+const letraDeNombre = new Map([...LETRAS_FIJAS].map(([l, n]) => [n, l]));
+for (const [l, n] of partidasPrevias) letraDeNombre.set(n, l);
+const partidasNuevasMeta = new Map(); // nombre → letra (solo las que no son fijas)
+for (const c of conceptosNuevos.values()) {
+  if (nombresConocidos.has(c.partida)) continue;
+  const parecido = [...nombresConocidos].find(n => deacc(n) === deacc(c.partida));
+  if (parecido) {
+    errores.push(`  La partida "${c.partida}" no existe pero "${parecido}" sí — ¿acento o mayúscula distinta? Usa el nombre exacto.`);
+    nombresConocidos.add(c.partida); // no repetir el error por cada concepto
+    continue;
+  }
+  if (partidasNuevasMeta.has(c.partida)) continue;
+  const duenoDeLetra = c.letra ? [...letraDeNombre.entries()].find(([, l]) => l === c.letra) : null;
+  if (!c.letra) {
+    errores.push(`  La partida nueva "${c.partida}" necesita letra en la columna "Partida" (ej. S).`);
+  } else if (duenoDeLetra) {
+    errores.push(`  La partida nueva "${c.partida}" usa la letra ${c.letra}, que ya pertenece a "${duenoDeLetra[0]}".`);
+  } else {
+    partidasNuevasMeta.set(c.partida, c.letra);
+    letraDeNombre.set(c.partida, c.letra);
+    avisos.push(`  Partida nueva: ${c.letra} · ${c.partida}`);
+  }
+  nombresConocidos.add(c.partida);
+}
+
 const resultConc = {};
 for (const [par, arr] of Object.entries(conceptosBase)) resultConc[par] = arr.map(c => ({ ...c }));
 const resultDict = { ...(insumosBase.dict || {}) };
 const resultBreak = { ...(insumosBase.breakdown || {}) };
+
+// Desgloses de la hoja de insumos cuyo concepto no existe en ningún lado
+for (const cod of breakdownNuevo.keys()) {
+  if (basicosCods.has(cod)) continue;
+  if (conceptosNuevos.has(cod) || partidaDe.has(cod) || resultBreak[cod]) continue;
+  avisos.push(`  El desglose de "${cod}" no corresponde a ningún concepto del archivo ni de la base (¿código mal escrito?).`);
+}
 
 let nuevos = 0, actualizados = 0, partidasNuevas = 0;
 for (const c of conceptosNuevos.values()) {
@@ -251,6 +323,37 @@ for (const c of conceptosNuevos.values()) {
 
 for (const [cod, entrada] of dictNuevo) resultDict[cod] = entrada;
 for (const [cod, lista] of breakdownNuevo) resultBreak[cod] = lista;
+
+// ── cs: costo específico del concepto ───────────────────────────────────────
+// La app usa i.cs cuando el costo de esa línea difiere del diccionario
+// (ej. herramienta %MO calculada por concepto). Sin esto, editar un insumo
+// en la app recalcularía con el costo genérico y daría un P.U. incorrecto.
+let csCount = 0;
+for (const lista of breakdownNuevo.values()) {
+  for (const ins of lista) {
+    const dcost = (resultDict[ins.cod] || [])[2];
+    if (dcost !== undefined && Math.abs(ins._c - dcost) > 0.005) { ins.cs = ins._c; csCount++; }
+    delete ins._c;
+  }
+}
+
+// En fusión: si el archivo cambió costos de diccionario, los conceptos que NO
+// vienen en el archivo conservan importes calculados con el costo anterior.
+if (!replace) {
+  const cambiados = new Set();
+  for (const [cod, ent] of dictNuevo) {
+    const prev = (insumosBase.dict || {})[cod];
+    if (prev && Math.abs((prev[2] ?? 0) - ent[2]) > 0.005) cambiados.add(cod);
+  }
+  if (cambiados.size) {
+    let afectados = 0;
+    for (const [cod, lista] of Object.entries(resultBreak)) {
+      if (breakdownNuevo.has(cod)) continue;
+      if (lista.some(i => cambiados.has(i.cod) && i.cs === undefined)) afectados++;
+    }
+    if (afectados) avisos.push(`  ${cambiados.size} insumos cambiaron de costo; ${afectados} conceptos fuera del archivo conservan importes con el costo anterior. Para repreciar toda la base usa --replace con el libro completo.`);
+  }
+}
 
 // ── Recalcular precios desde el desglose ────────────────────────────────────
 // Esto mantiene la invariante: P.U. = suma de importes = mat + mo
@@ -298,6 +401,7 @@ console.log(`    nuevos:             ${nuevos}`);
 console.log(`    actualizados:       ${actualizados}`);
 console.log(`  Partidas nuevas:      ${partidasNuevas}`);
 console.log(`  Básicos con desglose: ${basicosCount}`);
+console.log(`  Costos específicos:   ${csCount} líneas con cs`);
 console.log(`  Precios recalculados: ${recalculados}`);
 console.log('  ─────────────────────────────────────────');
 console.log(`  Total conceptos:      ${totalConc}`);
@@ -324,13 +428,21 @@ if (dryRun) {
 }
 
 // ── Escribir con respaldo ───────────────────────────────────────────────────
-const stamp = new Date().toISOString().slice(0, 10);
+const stamp = new Date().toISOString().replace(/:/g, '-').slice(0, 19);
 for (const f of [F_CONC, F_INS]) {
   if (existsSync(f)) {
     const bak = f.replace(/\.json$/, `.${stamp}.bak.json`);
     copyFileSync(f, bak);
   }
 }
+// Partidas extra (fuera de las 18 fijas A–R): letra y nombre para que la app
+// las muestre en el catálogo. Se conservan las de corridas anteriores.
+const partidasExtra = new Map(partidasPrevias.filter(([, n]) => resultConc[n]));
+for (const [nombre, letra] of partidasNuevasMeta) {
+  if (resultConc[nombre]) partidasExtra.set(letra, nombre);
+}
+if (partidasExtra.size) resultConc.__partidas = [...partidasExtra.entries()];
+
 writeFileSync(F_CONC, JSON.stringify(resultConc), 'utf8');
 writeFileSync(F_INS, JSON.stringify({ dict: resultDict, breakdown: resultBreak }), 'utf8');
 
