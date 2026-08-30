@@ -2870,7 +2870,13 @@ function hydrateInsumoCatalogOptions() {
 // Texto con el que se precarga el campo del catálogo: lleva el código delante
 // solo cuando la descripción sola no basta para saber de qué insumo se trata.
 function catalogValueFor(cod, desc) {
-  return (cod && _catalogAmbiguas && _catalogAmbiguas.has(desc)) ? `${cod} | ${desc}` : desc;
+  // El campo muestra SIEMPRE la descripción limpia. El desplegable sí ofrece
+  // "CÓDIGO | descripción" para las repetidas, y al elegir una el navegador
+  // escribe ese texto y onchange lo resuelve; el re-render lo deja limpio otra
+  // vez. Meter el código en el campo editable corrompía la descripción cuando
+  // la edición se abandonaba a medias, y borrar el prefijo a mano desvinculaba
+  // el insumo. El código se ve bajo la descripción (.ins-row-cod).
+  return desc;
 }
 
 function parseCatalogValue(value) {
@@ -4039,6 +4045,11 @@ function applyInsumoCatalogPick(rowIdx, insIdx, value, fromCode = false) {
   const i = r?.insumos?.[insIdx];
   if (!i) return;
   const { raw, cod } = parseCatalogValue(value);
+  // Si el texto sigue siendo el nombre del insumo que ya tiene esta línea, no
+  // hay nada que reasignar. Sin esto, una descripción repetida (que se indexa
+  // como "CÓDIGO | ...") no se encontraría por su nombre a secas y la línea
+  // perdería su código.
+  if (i.cod && I_DICT[i.cod] && I_DICT[i.cod][0] === raw) return;
   const dict = I_DICT[cod];
   if (dict) {
     i.cod = cod;
