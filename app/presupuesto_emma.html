@@ -2261,7 +2261,7 @@ async function startInit() {
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
-  applyCustomBasicos();         // y la composicion de basicos editada
+  refrescarCatalogoDelPresupuesto();  // basicos y cuadrillas propios, con su cascada
   hydrateMeta();
   hydrateFasar();
   bindMeta();
@@ -2619,8 +2619,7 @@ function resetData() {
   STATE.customMaterialCosts = {};
   STATE.customBasicos = {};
   STATE.customCuadrillas = {};
-  applyCustomBasicos();      // devolver el catálogo en memoria a su estado de fábrica
-  recalcCrewDictionaryPrices();
+  refrescarCatalogoDelPresupuesto();  // devolver el catálogo en memoria a fábrica
   activePartida = 'A';
   applyFasarDictionaryPrices();
   hydrateMeta(); hydrateFasar(); render();
@@ -2689,8 +2688,7 @@ function restoreSnapshot(data) {
   STATE.customCuadrillas = data.customCuadrillas || {};
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();
-  applyCustomBasicos();
-  recalcCrewDictionaryPrices();
+  refrescarCatalogoDelPresupuesto();
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
   syncInsumoDescriptions(); // el respaldo pudo guardarse con nombres anteriores
   save();
@@ -3411,61 +3409,82 @@ function applyCustomMaterialPrices() {
 let _basicosOriginales = {};
 let _cuadrillasOriginales = {};
 
-function costoDeComposicion(parts) {
-  let total = 0;
+// Rellena el costo de las partes que no lo traen, tomándolo del diccionario.
+// El catálogo guarda cs solo cuando difiere del precio genérico; si no se
+// rellena, esas partes valdrían 0 al recalcular.
+function normalizarPartes(parts) {
   parts.forEach(p => {
-    const cs  = Number(p.cs || 0);
-    const imp = p.op === '/' ? (p.q ? cs / p.q : 0) : cs * Number(p.q || 0);
-    p.cs = round2(cs);
-    p.i  = round2(imp);
-    total += p.i;   // se suman los importes ya redondeados, igual que el P.U.
-  });                // de un concepto: si no, la tarjeta y el costo aplicado
-  return round2(total); // pueden diferir en un centavo.
+    if (p.cs === undefined || p.cs === null || p.cs === '') {
+      const d = I_DICT[p.cod];
+      p.cs = d ? Number(d[2] || 0) : 0;
+    }
+  });
+  return parts;
 }
 
-// Códigos actualmente volcados sobre el catálogo en memoria. Hace falta para
-// poder DESHACERLOS: el catálogo es único para toda la sesión, así que si al
-// abrir otra obra no se revierte, esa obra hereda los precios de la anterior.
-let _basicosAplicados = new Set();
+// Costo de un básico a partir de su composición. Se apoya en
+// recalcInsumoAmounts, que es quien sabe tratar los insumos por porcentaje de
+// mano de obra (herramienta menor, equipo de seguridad): calcularlos como
+// costo × cantidad daría un precio equivocado.
+function costoDeComposicion(parts) {
+  normalizarPartes(parts);
+  recalcInsumoAmounts(parts);
+  return round2(parts.reduce((s, p) => s + Number(p.i || 0), 0));
+}
 
-// Vuelca STATE.customBasicos sobre el catálogo en memoria (I_BREAKDOWN e
-// I_DICT), y revierte los que este presupuesto ya no tiene editados.
-function applyCustomBasicos() {
-  const custom = STATE.customBasicos || {};
+// ── Registro único de lo que se toca del catálogo ──────────────────────────
+// El catálogo (I_DICT / I_BREAKDOWN) es uno solo para toda la sesión, así que
+// cualquier escritura hecha por un presupuesto tiene que poder deshacerse al
+// abrir otro. TODA ruta que lo modifique debe pasar antes por recordarOriginal:
+// llevar el registro en un solo lugar evita que una ruta nueva se escape y
+// contamine la obra siguiente.
+let _catalogoTocado = new Map();   // cod → { parts, costo } de fábrica
 
-  // 1) Devolver a su composición de fábrica los que ya no están editados.
-  _basicosAplicados.forEach(cod => {
-    if (custom[cod]) return;
-    const orig = _basicosOriginales[cod];
-    if (!orig) return;
-    I_BREAKDOWN[cod] = orig.map(p => ({ ...p }));
-    if (I_DICT[cod]) I_DICT[cod][2] = round2(I_BREAKDOWN[cod].reduce((s, p) => s + (p.i || 0), 0));
+function recordarOriginal(cod) {
+  if (_catalogoTocado.has(cod)) return;
+  _catalogoTocado.set(cod, {
+    parts: (I_BREAKDOWN[cod] || []).map(p => ({ ...p })),
+    costo: I_DICT[cod] ? Number(I_DICT[cod][2]) : null,
+    tenia: Object.prototype.hasOwnProperty.call(I_BREAKDOWN, cod),
   });
-  _basicosAplicados = new Set();
+}
 
-  // 2) Aplicar los de este presupuesto.
+function restaurarCatalogo() {
+  _catalogoTocado.forEach((orig, cod) => {
+    if (orig.tenia) I_BREAKDOWN[cod] = orig.parts.map(p => ({ ...p }));
+    else delete I_BREAKDOWN[cod];
+    if (orig.costo !== null && I_DICT[cod]) I_DICT[cod][2] = orig.costo;
+  });
+  _catalogoTocado.clear();
+}
+
+// Vuelca STATE.customBasicos sobre el catálogo, partiendo siempre del estado de
+// fábrica: así una obra nunca hereda las ediciones de la anterior.
+function applyCustomBasicos() {
+  restaurarCatalogo();
+  const custom = STATE.customBasicos || {};
   Object.keys(custom).forEach(cod => {
+    recordarOriginal(cod);
     if (!_basicosOriginales[cod] && I_BREAKDOWN[cod]) {
       _basicosOriginales[cod] = I_BREAKDOWN[cod].map(p => ({ ...p }));
     }
     const parts = (custom[cod] || []).map(p => ({ ...p }));
-    // El costo de cada componente se toma del catálogo vivo, salvo el que el
-    // usuario haya tecleado a mano: si no, un básico editado se quedaría con
-    // precios de material congelados para siempre.
+    // El costo de cada componente sale del catálogo vivo, salvo el que el
+    // usuario tecleó a mano y los de porcentaje sobre mano de obra, que
+    // recalcInsumoAmounts deriva del propio básico.
     parts.forEach(p => {
-      if (p.csManual) return;
+      if (p.csManual || isGlobalMoPercentInsumo(p)) return;
       const d = I_DICT[p.cod];
       if (d) p.cs = Number(d[2] || 0);
     });
     const total = costoDeComposicion(parts);
     I_BREAKDOWN[cod] = parts;
     if (I_DICT[cod]) I_DICT[cod][2] = total;
-    _basicosAplicados.add(cod);
   });
 }
 
-// Recalcula, en cascada, los básicos que contienen alguno de estos códigos.
-// Se usa cuando cambia una cuadrilla o un básico anidado: sin esto la tarjeta
+// Recalcula en cascada los básicos que contienen alguno de estos códigos. Se
+// usa cuando cambia una cuadrilla o un básico anidado: sin esto la tarjeta
 // mostraría el precio nuevo y los conceptos seguirían con el viejo.
 function recalcBasicosQueUsan(afectados) {
   for (let pasada = 0; pasada < 3; pasada++) {
@@ -3475,8 +3494,9 @@ function recalcBasicosQueUsan(afectados) {
       const parts = I_BREAKDOWN[cod];
       if (!parts || !parts.length) return;
       if (!parts.some(p => afectados.has(p.cod))) return;
+      recordarOriginal(cod);   // reversible, igual que las ediciones directas
       parts.forEach(p => {
-        if (p.csManual || !afectados.has(p.cod)) return;
+        if (p.csManual || !afectados.has(p.cod) || isGlobalMoPercentInsumo(p)) return;
         const d = I_DICT[p.cod];
         if (d) p.cs = Number(d[2] || 0);
       });
@@ -3501,10 +3521,21 @@ function crewPartsFor(cod) {
 // tocados. Antes recorría todas las filas y reescribía el costo de cualquier
 // básico, con lo que borraba lo que el usuario hubiera ajustado a mano en el
 // panel de un concepto, y aplastaba los precios unitarios tecleados.
-function propagarBasicos(codigosTocados) {
+// Deja el catálogo en memoria reflejando lo que este presupuesto tiene editado:
+// parte de fábrica, aplica los básicos propios, recalcula las cuadrillas y
+// propaga en cascada. Es idempotente y TODO camino debe usarla: si una vista
+// llamara a applyCustomBasicos por su cuenta, borraría la cascada recién hecha.
+function refrescarCatalogoDelPresupuesto(codigosExtra) {
   applyCustomBasicos();
   recalcCrewDictionaryPrices();
-  const afectados = recalcBasicosQueUsan(new Set(codigosTocados || []));
+  const semillas = new Set(codigosExtra || []);
+  Object.keys(STATE.customBasicos   || {}).forEach(c => semillas.add(c));
+  Object.keys(STATE.customCuadrillas || {}).forEach(c => semillas.add(c));
+  return recalcBasicosQueUsan(semillas);
+}
+
+function propagarBasicos(codigosTocados) {
+  const afectados = refrescarCatalogoDelPresupuesto(codigosTocados);
 
   PARTIDAS.forEach(([l]) => {
     (STATE.rows[l] || []).forEach(r => {
@@ -3588,7 +3619,7 @@ function syncInsumoDescriptions() {
 // Propaga precios de materiales a I_DICT, básicos, filas del presupuesto y recalcula
 function applyCustomMaterialsToBudget() {
   applyCustomMaterialPrices();
-  applyCustomBasicos();   // un básico editado manda sobre el precio de catálogo
+  refrescarCatalogoDelPresupuesto();   // un básico editado manda sobre el catálogo
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
       if (!r.insumos) { r.matIVA = null; return; }
@@ -4737,8 +4768,7 @@ function renderBasicosList() {
   if (!body || !sub) return;
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
-  applyCustomBasicos();
-  recalcCrewDictionaryPrices();
+  refrescarCatalogoDelPresupuesto();   // conserva la cascada; no la deshace
 
   const { obra, cuadrillas } = basicosDelPresupuesto();
 
