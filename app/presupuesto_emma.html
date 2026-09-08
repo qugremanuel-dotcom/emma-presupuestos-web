@@ -1237,6 +1237,99 @@ table.basico-parts tr:last-child td { border-bottom: none; }
   font-weight: 700;
   cursor: help;
 }
+
+/* ── Básicos: lista plegable y editable ── */
+.bas-seccion { margin-bottom: 26px; }
+.bas-seccion-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 0 2px 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.bas-seccion-head h3 {
+  margin: 0; font-size: 12px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+}
+.bas-seccion-head span { font-size: 12px; color: var(--ink-4); }
+
+.bas-card {
+  border: 1px solid var(--line); background: white;
+  margin-bottom: 8px;
+}
+.bas-card.abierto { border-color: var(--gold); box-shadow: 0 6px 18px -12px rgba(0,0,0,.25); }
+
+.bas-head {
+  display: grid;
+  grid-template-columns: 22px 116px 1fr 62px 108px;
+  align-items: center; gap: 12px;
+  width: 100%; padding: 11px 14px;
+  background: transparent; border: none; cursor: pointer;
+  text-align: left; font: inherit;
+}
+.bas-head:hover { background: #FBFAF5; }
+.bas-card.abierto .bas-head { background: var(--gold-lt); }
+.bas-caret { color: var(--gold-dk); font-size: 11px; }
+.bas-cod {
+  font-family: ui-monospace, monospace; font-size: 11px;
+  color: var(--ink-3); font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bas-desc-head { font-size: 13px; color: var(--ink); line-height: 1.35; min-width: 0; }
+.bas-usos {
+  display: block; font-size: 11px; color: var(--ink-4); margin-top: 2px;
+}
+.bas-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  background: var(--gold); color: white; font-size: 10px; font-weight: 700;
+  letter-spacing: .04em; vertical-align: 1px;
+}
+.bas-unit {
+  font-size: 11px; color: var(--ink-4); text-transform: uppercase; text-align: center;
+}
+.bas-total {
+  font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums;
+  font-size: 14px; font-weight: 700; text-align: right; color: var(--ink);
+}
+
+.bas-body { border-top: 1px solid var(--line); background: #FCFBF7; padding: 12px 14px 10px; }
+.bas-table-wrap { overflow-x: auto; background: white; border: 1px solid var(--line-soft); }
+table.bas-table { width: 100%; min-width: 720px; border-collapse: collapse; }
+table.bas-table th {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-4); font-weight: 700; text-align: left;
+  padding: 8px 9px; background: var(--paper); border-bottom: 1px solid var(--line-soft);
+}
+table.bas-table td { padding: 5px 9px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; font-size: 12.5px; }
+table.bas-table tr:last-child td { border-bottom: none; }
+.bas-desc { min-width: 220px; }
+.bas-input, .bas-num-input, .bas-sel {
+  width: 100%; border: 1px solid transparent; background: transparent;
+  padding: 4px 6px; font-size: 12.5px; font-family: inherit; outline: none;
+}
+.bas-num-input {
+  font-family: ui-monospace, monospace; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bas-input:hover, .bas-num-input:hover, .bas-sel:hover { background: white; border-color: var(--line-soft); }
+.bas-input:focus, .bas-num-input:focus, .bas-sel:focus {
+  background: white; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(200,169,110,.18);
+}
+.bas-un { text-transform: uppercase; text-align: center; }
+.bas-op { cursor: pointer; text-align: center; }
+.bas-act { text-align: center; }
+
+.bas-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; padding-top: 9px; font-size: 11.5px;
+}
+.bas-foot-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bas-nota { color: var(--ink-4); }
+
+@media (max-width: 760px) {
+  .bas-head { grid-template-columns: 18px 1fr 92px; row-gap: 4px; }
+  .bas-cod { grid-column: 2; }
+  .bas-desc-head { grid-column: 1 / -1; }
+  .bas-unit { display: none; }
+}
 .basico-cod {
   font-family: ui-monospace, monospace;
   color: var(--gold-dk);
@@ -1528,13 +1621,10 @@ table.ci-porc td.ci-td-ctrl { white-space: nowrap; text-align: right; }
   <section class="app-view insumos-list screen-only" id="basicosView">
     <div class="insumos-list-head">
       <div>
-        <div class="insumos-list-title">Básicos / cuadrillas</div>
-        <div class="insumos-list-sub" id="basicosListSub">Consulta cuadrillas y básicos de obra con sus costos actuales.</div>
+        <div class="insumos-list-title">Básicos del presupuesto</div>
+        <div class="insumos-list-sub" id="basicosListSub">Cargando…</div>
       </div>
       <div class="insumos-filters">
-        <button class="filter-chip active" id="basico-filter-all" onclick="setBasicoFilter('all')">Todos</button>
-        <button class="filter-chip" id="basico-filter-cuadrilla" onclick="setBasicoFilter('cuadrilla')">Cuadrillas</button>
-        <button class="filter-chip" id="basico-filter-obra" onclick="setBasicoFilter('obra')">Básicos de obra</button>
         <button class="btn btn-sm" onclick="renderBasicosList()">Actualizar</button>
         <button class="btn btn-sm" onclick="printBasicos()">⎙ Imprimir</button>
       </div>
@@ -2171,6 +2261,7 @@ async function startInit() {
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
+  applyCustomBasicos();         // y la composicion de basicos editada
   hydrateMeta();
   hydrateFasar();
   bindMeta();
@@ -2395,6 +2486,8 @@ const STATE = {
   fasar: cloneFasar(DEFAULT_FASAR),
   ci: ciDefaultState(),
   customMaterialCosts: {},  // { [cod]: price } — precios de materiales editados por el usuario
+  customBasicos: {},        // { [cod]: [partes] } — composición de básicos editada por el usuario
+  customCuadrillas: {},     // { [cod]: [{cod,q}] } — integrantes de cuadrilla editados por el usuario
   customPartidas: [],   // partidas creadas por el usuario [[letter, name], ...]
 };
 PARTIDAS.forEach(([l]) => STATE.rows[l] = []);
@@ -2404,7 +2497,6 @@ let pickerScope = null;
 let activeInsumos = null;
 let activeView = 'presupuesto';
 let activeInsumoFilter = 'all';
-let activeBasicoFilter = 'all';
 
 // DB — se llena desde el servidor tras verificar la licencia
 let DB = {};
@@ -2462,6 +2554,8 @@ function save() {
       active: activePartida,
       customPartidas: partidasParaSnapshot(),
       customMaterialCosts: STATE.customMaterialCosts || {},
+      customBasicos: STATE.customBasicos || {},
+      customCuadrillas: STATE.customCuadrillas || {},
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(data));
     // Respaldo silencioso al servidor (no bloquea la UI)
@@ -2504,6 +2598,8 @@ function load() {
     }
     if (d.active && NAME_BY_LETTER[d.active]) activePartida = d.active;
     STATE.customMaterialCosts = d.customMaterialCosts || {};
+    STATE.customBasicos    = d.customBasicos    || {};
+    STATE.customCuadrillas = d.customCuadrillas || {};
   } catch(e) { console.warn('load failed', e); }
 }
 function resetData() {
@@ -2521,6 +2617,8 @@ function resetData() {
   STATE.fasar = cloneFasar(DEFAULT_FASAR);
   STATE.ci = ciDefaultState();
   STATE.customMaterialCosts = {};
+  STATE.customBasicos = {};
+  STATE.customCuadrillas = {};
   activePartida = 'A';
   applyFasarDictionaryPrices();
   hydrateMeta(); hydrateFasar(); render();
@@ -2541,6 +2639,11 @@ function snapshotState() {
     ci: STATE.ci,
     active: activePartida,
     customPartidas: partidasParaSnapshot(),
+    // Los ajustes propios del presupuesto tienen que viajar en el respaldo y en
+    // la copia de la nube; restoreSnapshot ya los esperaba pero no se enviaban.
+    customMaterialCosts: STATE.customMaterialCosts || {},
+    customBasicos: STATE.customBasicos || {},
+    customCuadrillas: STATE.customCuadrillas || {},
   };
 }
 
@@ -2580,8 +2683,12 @@ function restoreSnapshot(data) {
     STATE.ci.porcCampo    = (data.ci.porcCampo    && data.ci.porcCampo.length    ? data.ci.porcCampo    : CI_PORC_CAMPO_DEF).map(x => ({...x}));
   }
   STATE.customMaterialCosts = data.customMaterialCosts || {};
+  STATE.customBasicos    = data.customBasicos    || {};
+  STATE.customCuadrillas = data.customCuadrillas || {};
   applyFasarDictionaryPrices();
   applyCustomMaterialPrices();
+  applyCustomBasicos();
+  recalcCrewDictionaryPrices();
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
   syncInsumoDescriptions(); // el respaldo pudo guardarse con nombres anteriores
   save();
@@ -3290,6 +3397,110 @@ function applyCustomMaterialPrices() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BÁSICOS EDITABLES POR PRESUPUESTO
+// Un básico es compartido: cambiarlo mueve el precio de todos los conceptos
+// que lo usan. La composición editada vive en el presupuesto (STATE), no en el
+// catálogo, así que viaja en el respaldo y no afecta a otras obras.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Composición de fábrica, para poder restablecer. Se guarda la primera vez que
+// se sobrescribe cada básico, antes de pisarlo.
+let _basicosOriginales = {};
+let _cuadrillasOriginales = {};
+
+function costoDeComposicion(parts) {
+  let total = 0;
+  parts.forEach(p => {
+    const cs  = Number(p.cs || 0);
+    const imp = p.op === '/' ? (p.q ? cs / p.q : 0) : cs * Number(p.q || 0);
+    p.cs = round2(cs);
+    p.i  = round2(imp);
+    total += p.i;   // se suman los importes ya redondeados, igual que el P.U.
+  });                // de un concepto: si no, la tarjeta y el costo aplicado
+  return round2(total); // pueden diferir en un centavo.
+}
+
+// Vuelca STATE.customBasicos sobre el catálogo en memoria (I_BREAKDOWN e
+// I_DICT), que es de donde leen el resto de los cálculos.
+function applyCustomBasicos() {
+  const custom = STATE.customBasicos || {};
+  Object.keys(custom).forEach(cod => {
+    if (!_basicosOriginales[cod] && I_BREAKDOWN[cod]) {
+      _basicosOriginales[cod] = I_BREAKDOWN[cod].map(p => ({ ...p }));
+    }
+    const parts = (custom[cod] || []).map(p => ({ ...p }));
+    const total = costoDeComposicion(parts);
+    I_BREAKDOWN[cod] = parts;
+    if (I_DICT[cod]) I_DICT[cod][2] = total;
+  });
+}
+
+// Integrantes de una cuadrilla: los editados si los hay, si no los de fábrica.
+function crewPartsFor(cod) {
+  const c = (STATE.customCuadrillas || {})[cod];
+  return (c && c.length) ? c : (CREW_COMPOSITION[cod] || []);
+}
+
+// Tras tocar un básico hay que rehacer los importes de cada concepto que lo
+// use y los totales del presupuesto.
+function propagarBasicos() {
+  applyCustomBasicos();
+  recalcCrewDictionaryPrices();
+  PARTIDAS.forEach(([l]) => {
+    (STATE.rows[l] || []).forEach(r => {
+      if (!r.insumos || !r.insumos.length) { r.matIVA = null; return; }
+      r.insumos.forEach(ins => {
+        if (ins.custom) return;
+        const dict = I_DICT[ins.cod];
+        if ((ins.t === 'B' || ins.t === 'O') && dict) ins.cs = Number(dict[2] || 0);
+      });
+      recalcInsumoAmounts(r.insumos);
+      let mat = 0, mo = 0, total = 0, matIVA = 0;
+      r.insumos.forEach(i => {
+        total += i.i || 0;
+        if      (i.t === 'M') { mat += i.i || 0; matIVA += i.i || 0; }
+        else if (i.t === 'B') { mat += i.i || 0; matIVA += computeBasicoMatMonto(i); }
+        else                    mo  += i.i || 0;
+      });
+      r.mat = round2(mat); r.matIVA = round2(matIVA);
+      r.mo  = round2(mo);  r.p      = round2(total);
+      r.insumos_modified = true;
+    });
+  });
+  calcularPresupuesto(false);
+  save();
+}
+
+// Básicos y cuadrillas que realmente usa este presupuesto, con cuántos
+// conceptos dependen de cada uno. Incluye los anidados dentro de otro básico.
+function basicosDelPresupuesto() {
+  const obra = new Map(), cuadrillas = new Map();
+  PARTIDAS.forEach(([l]) => {
+    (STATE.rows[l] || []).forEach(r => {
+      const partes = (r.insumos && r.insumos.length) ? r.insumos : (I_BREAKDOWN[r.cod] || []);
+      const vistos = new Set();
+      partes.forEach(p => {
+        if (!p.cod || vistos.has(p.cod)) return;
+        vistos.add(p.cod);
+        if (p.t === 'B')                      obra.set(p.cod, (obra.get(p.cod) || 0) + 1);
+        else if (p.t === 'O' && CREW_COMPOSITION[p.cod]) cuadrillas.set(p.cod, (cuadrillas.get(p.cod) || 0) + 1);
+      });
+    });
+  });
+  // Básicos usados dentro de otro básico: también se pueden editar.
+  const cola = [...obra.keys()];
+  while (cola.length) {
+    const cod = cola.pop();
+    (I_BREAKDOWN[cod] || []).forEach(p => {
+      if (!p.cod) return;
+      if (p.t === 'B' && !obra.has(p.cod)) { obra.set(p.cod, 0); cola.push(p.cod); }
+      else if (p.t === 'O' && CREW_COMPOSITION[p.cod] && !cuadrillas.has(p.cod)) cuadrillas.set(p.cod, 0);
+    });
+  }
+  return { obra, cuadrillas };
+}
+
 // Cada presupuesto guarda la descripción de sus insumos junto con la fila. Si
 // después se precisa un nombre en el catálogo, un presupuesto viejo seguiría
 // mostrando el texto anterior, y en un mismo documento podrían convivir dos
@@ -3313,6 +3524,7 @@ function syncInsumoDescriptions() {
 // Propaga precios de materiales a I_DICT, básicos, filas del presupuesto y recalcula
 function applyCustomMaterialsToBudget() {
   applyCustomMaterialPrices();
+  applyCustomBasicos();   // un básico editado manda sobre el precio de catálogo
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
       if (!r.insumos) { r.matIVA = null; return; }
@@ -3368,9 +3580,10 @@ function resetCustomMaterialCosts() {
 }
 
 function recalcCrewDictionaryPrices() {
-  Object.entries(CREW_COMPOSITION).forEach(([crewCode, parts]) => {
+  Object.keys(CREW_COMPOSITION).forEach(crewCode => {
     const entry = I_DICT[crewCode];
     if (!entry) return;
+    const parts = crewPartsFor(crewCode);   // los integrantes editados, si los hay
     const total = parts.reduce((sum, part) => {
       const worker = getWorkerDictEntry(part.cod);
       return sum + Number(part.q || 0) * Number(worker?.[2] || 0);
@@ -4336,160 +4549,300 @@ function renderInsumosList() {
     </table>`;
 }
 
-function renderBasicosList() {
-  const body = document.getElementById('basicosListBody');
-  const sub = document.getElementById('basicosListSub');
-  if (!body || !sub) return;
-  ensureFasarBaseCosts();
-  applyFasarDictionaryPrices();
-  const basics = Object.entries(CREW_COMPOSITION).map(([cod, parts]) => {
-    const entry = I_DICT[cod] || ['', 'JOR', 0];
-    const total = parts.reduce((sum, part) => {
-      const worker = getWorkerDictEntry(part.cod);
-      return sum + Number(part.q || 0) * Number(worker?.[2] || 0);
-    }, 0);
-    return { cod, desc: entry[0] || cod, unit: entry[1] || 'JOR', total: round2(total), parts };
-  }).sort((a, b) => a.cod.localeCompare(b.cod, 'es', { numeric: true }));
-  sub.textContent = `${basics.length} básicos de cuadrilla calculados con los salarios actuales.`;
-  body.innerHTML = `<div class="basicos-grid">${basics.map(b => {
-    const rows = b.parts.map(part => {
-      const worker = getWorkerDictEntry(part.cod) || ['', 'JOR', 0];
-      const qty = Number(part.q || 0);
-      const salary = Number(worker[2] || 0);
-      return `<tr>
-        <td><span class="ins-crew-code">${escHtml(displayWorkerCode(part.cod))}</span></td>
-        <td>${escHtml(worker[0] || '')}</td>
-        <td>${escHtml(worker[1] || 'JOR')}</td>
-        <td class="basico-num">${qty.toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
-        <td class="basico-num">${fmt(salary)}</td>
-        <td class="basico-num"><strong>${fmt(qty * salary)}</strong></td>
-      </tr>`;
-    }).join('');
-    return `<article class="basico-card">
-      <div class="basico-card-head">
-        <div>
-          <div class="basico-code">${escHtml(b.unit)}</div>
-          <div class="basico-desc">${escHtml(b.desc)}</div>
-        </div>
-        <div class="basico-price">${fmt(b.total)}</div>
-      </div>
-      <table class="basico-parts">
-        <thead><tr>
-          <th style="width:92px">MO</th>
-          <th>Trabajador</th>
-          <th style="width:56px">Un.</th>
-          <th style="width:86px">Cant.</th>
-          <th style="width:98px">Salario</th>
-          <th style="width:98px">Importe</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </article>`;
-  }).join('')}</div>`;
-}
+// ── Vista de básicos: lista plegable y editable ────────────────────────────
+// Los básicos del presupuesto, separados en básicos de obra y cuadrillas
+// (mano de obra). Cada uno se despliega al hacer clic y se puede editar; los
+// cambios se guardan en el presupuesto y se propagan a todos los conceptos
+// que usan ese básico.
+let _basicosAbiertos = new Set();
 
-function setBasicoFilter(filter) {
-  activeBasicoFilter = filter;
-  ['all','cuadrilla','obra'].forEach(k => {
-    const el = document.getElementById('basico-filter-' + k);
-    if (el) el.classList.toggle('active', k === filter);
-  });
+function toggleBasico(cod) {
+  if (_basicosAbiertos.has(cod)) _basicosAbiertos.delete(cod);
+  else _basicosAbiertos.add(cod);
   renderBasicosList();
 }
 
+function basicoEditado(cod)   { return !!(STATE.customBasicos || {})[cod]; }
+function cuadrillaEditada(cod) { return !!(STATE.customCuadrillas || {})[cod]; }
+
+// Composición actual de un básico de obra (la editada si existe).
+function partesDeBasico(cod) {
+  const custom = (STATE.customBasicos || {})[cod];
+  const base = custom || I_BREAKDOWN[cod] || [];
+  return base.map(i => {
+    const dict = I_DICT[i.cod] || [i.c || '', i.u || '', i.cs || 0];
+    return {
+      t: i.t || 'M', cod: i.cod || '',
+      c: i.c || dict[0] || '', u: i.u || dict[1] || '',
+      cs: Number(i.cs ?? dict[2] ?? 0),
+      op: i.op || '*', q: Number(i.q || 0), i: 0,
+    };
+  });
+}
+
+// Deja la composición actual guardada como edición del usuario, para poder
+// modificarla sin tocar el catálogo original.
+function asegurarBasicoEditable(cod) {
+  STATE.customBasicos = STATE.customBasicos || {};
+  if (!STATE.customBasicos[cod]) {
+    if (!_basicosOriginales[cod] && I_BREAKDOWN[cod]) {
+      _basicosOriginales[cod] = I_BREAKDOWN[cod].map(p => ({ ...p }));
+    }
+    const partes = partesDeBasico(cod);
+    recalcInsumoAmounts(partes);
+    STATE.customBasicos[cod] = partes;
+  }
+  return STATE.customBasicos[cod];
+}
+
+function onBasicoPartChange(cod, idx, campo, valor) {
+  const partes = asegurarBasicoEditable(cod);
+  const p = partes[idx];
+  if (!p) return;
+  if (campo === 'q' || campo === 'cs') {
+    const n = parseFloat(valor);
+    p[campo] = isNaN(n) ? 0 : Math.max(0, n);
+  } else if (campo === 'op') {
+    p.op = valor === '/' ? '/' : '*';
+  } else if (campo === 't') {
+    p.t = valor;
+  } else if (campo === 'c' || campo === 'u') {
+    p[campo] = valor;
+  }
+  recalcInsumoAmounts(partes);
+  propagarBasicos();
+  renderBasicosList();
+}
+
+function addBasicoPart(cod, tipo) {
+  const partes = asegurarBasicoEditable(cod);
+  partes.push({ t: tipo, cod: '', c: '', u: 'PZA', cs: 0, op: '*', q: 1, i: 0 });
+  propagarBasicos();
+  renderBasicosList();
+}
+
+function delBasicoPart(cod, idx) {
+  const partes = asegurarBasicoEditable(cod);
+  partes.splice(idx, 1);
+  recalcInsumoAmounts(partes);
+  propagarBasicos();
+  renderBasicosList();
+}
+
+function resetBasico(cod) {
+  if (!confirm('¿Devolver este básico a su composición original del catálogo?')) return;
+  delete (STATE.customBasicos || {})[cod];
+  if (_basicosOriginales[cod]) I_BREAKDOWN[cod] = _basicosOriginales[cod].map(p => ({ ...p }));
+  if (I_DICT[cod] && I_BREAKDOWN[cod]) I_DICT[cod][2] = round2(I_BREAKDOWN[cod].reduce((s, p) => s + (p.i || 0), 0));
+  propagarBasicos();
+  renderBasicosList();
+  toast('Básico restablecido');
+}
+
+function onCuadrillaQtyChange(cod, idx, valor) {
+  STATE.customCuadrillas = STATE.customCuadrillas || {};
+  if (!STATE.customCuadrillas[cod]) {
+    if (!_cuadrillasOriginales[cod]) _cuadrillasOriginales[cod] = (CREW_COMPOSITION[cod] || []).map(p => ({ ...p }));
+    STATE.customCuadrillas[cod] = (CREW_COMPOSITION[cod] || []).map(p => ({ ...p }));
+  }
+  const p = STATE.customCuadrillas[cod][idx];
+  if (!p) return;
+  const n = parseFloat(valor);
+  p.q = isNaN(n) ? 0 : Math.max(0, n);
+  propagarBasicos();
+  renderBasicosList();
+}
+
+function resetCuadrilla(cod) {
+  if (!confirm('¿Devolver esta cuadrilla a sus integrantes originales?')) return;
+  delete (STATE.customCuadrillas || {})[cod];
+  propagarBasicos();
+  renderBasicosList();
+  toast('Cuadrilla restablecida');
+}
+
 function renderBasicosList() {
   const body = document.getElementById('basicosListBody');
-  const sub = document.getElementById('basicosListSub');
+  const sub  = document.getElementById('basicosListSub');
   if (!body || !sub) return;
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
-  const crewBasics = Object.entries(CREW_COMPOSITION).map(([cod, parts]) => {
-    const entry = I_DICT[cod] || ['', 'JOR', 0];
-    const total = parts.reduce((sum, part) => {
-      const worker = getWorkerDictEntry(part.cod);
-      return sum + Number(part.q || 0) * Number(worker?.[2] || 0);
-    }, 0);
-    return { kind: 'cuadrilla', cod, desc: entry[0] || cod, unit: entry[1] || 'JOR', total: round2(total), parts };
-  });
-  const obraCodes = new Set();
-  Object.values(I_BREAKDOWN || {}).forEach(rows => {
-    (rows || []).forEach(i => { if (i.t === 'B' && i.cod) obraCodes.add(i.cod); });
-  });
-  const obraBasics = Array.from(obraCodes).map(cod => {
-    const entry = I_DICT[cod] || ['', '', 0];
-    const rawParts = (I_BREAKDOWN[cod] || []).map(i => {
-      const dict = I_DICT[i.cod] || [i.c || '', i.u || '', i.cs || 0];
-      return {
-        t: i.t || 'M',
-        cod: i.cod || '',
-        c: i.c || dict[0] || '',
-        u: i.u || dict[1] || '',
-        cs: Number(i.cs ?? dict[2] ?? 0),
-        op: i.op || '*',
-        q: Number(i.q || 0),
-        i: 0,
-      };
-    });
-    recalcInsumoAmounts(rawParts);
-    const total = rawParts.length ? rawParts.reduce((sum, i) => sum + Number(i.i || 0), 0) : Number(entry[2] || 0);
-    return { kind: 'obra', cod, desc: entry[0] || cod, unit: entry[1] || '', total: round2(total), parts: rawParts };
-  });
-  const basics = crewBasics.concat(obraBasics)
-    .filter(b => activeBasicoFilter === 'all' || b.kind === activeBasicoFilter)
-    .sort((a, b) => a.kind.localeCompare(b.kind, 'es') || a.cod.localeCompare(b.cod, 'es', { numeric: true }));
-  sub.textContent = `${basics.length} básico${basics.length===1?'':'s'} en consulta (${crewBasics.length} cuadrillas, ${obraBasics.length} de obra).`;
-  if (!basics.length) {
-    body.innerHTML = '<div class="insumos-list-empty">No hay básicos en el filtro seleccionado.</div>';
+  applyCustomBasicos();
+  recalcCrewDictionaryPrices();
+
+  const { obra, cuadrillas } = basicosDelPresupuesto();
+
+  const tipoTexto = t => t === 'M' ? 'Mat' : (t === 'B' ? 'Básico' : (t === 'O' ? 'MO' : 'Equipo'));
+  const tipoClase = t => t === 'O' ? 'mo' : (t === 'E' ? 'eq' : (t === 'B' ? 'bas' : ''));
+  const usos = n => n === 0 ? 'dentro de otro básico' : `en ${n} concepto${n === 1 ? '' : 's'}`;
+
+  // ── Tarjeta de un básico de obra ─────────────────────────────────────────
+  function tarjetaObra(cod, nUsos) {
+    const dict   = I_DICT[cod] || ['', '', 0];
+    const partes = partesDeBasico(cod);
+    recalcInsumoAmounts(partes);
+    const total  = round2(partes.reduce((s, p) => s + (p.i || 0), 0));
+    const abierto = _basicosAbiertos.has(cod);
+    const editado = basicoEditado(cod);
+
+    const filas = partes.length ? partes.map((p, k) => `
+      <tr>
+        <td><select class="bas-sel" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'t',this.value)">
+          ${['M','B','O','E'].map(t => `<option value="${t}"${p.t === t ? ' selected' : ''}>${tipoTexto(t)}</option>`).join('')}
+        </select></td>
+        <td class="bas-desc">
+          <input type="text" class="bas-input" list="insumoCatalogOptions" value="${escHtml(p.c)}"
+                 placeholder="Buscar en la base o escribir insumo"
+                 onchange="onBasicoPartPick('${escHtml(cod)}',${k},this.value)">
+          ${p.cod ? `<span class="ins-row-cod">${escHtml(p.cod)}</span>` : ''}
+        </td>
+        <td><input type="text" class="bas-input bas-un" value="${escHtml(p.u)}" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'u',this.value)"></td>
+        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.q}" oninput="onBasicoPartChange('${escHtml(cod)}',${k},'q',this.value)"></td>
+        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.cs}" oninput="onBasicoPartChange('${escHtml(cod)}',${k},'cs',this.value)"></td>
+        <td><select class="bas-sel bas-op" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'op',this.value)">
+          <option value="*"${p.op === '*' ? ' selected' : ''}>×</option>
+          <option value="/"${p.op === '/' ? ' selected' : ''}>÷</option>
+        </select></td>
+        <td class="basico-num"><strong>${fmt(p.i)}</strong></td>
+        <td class="bas-act"><button class="btn-del" title="Quitar" onclick="delBasicoPart('${escHtml(cod)}',${k})">×</button></td>
+      </tr>`).join('')
+      : `<tr><td colspan="8" class="insumos-list-empty">Este básico no tiene composición cargada.</td></tr>`;
+
+    return `<article class="bas-card${abierto ? ' abierto' : ''}">
+      <button class="bas-head" onclick="toggleBasico('${escHtml(cod)}')" aria-expanded="${abierto}">
+        <span class="bas-caret">${abierto ? '▾' : '▸'}</span>
+        <span class="bas-cod">${escHtml(cod)}</span>
+        <span class="bas-desc-head">${escHtml(dict[0] || cod)}
+          ${editado ? '<span class="bas-badge">modificado</span>' : ''}
+          <span class="bas-usos">Se usa ${usos(nUsos)}</span>
+        </span>
+        <span class="bas-unit">${escHtml(dict[1] || '')}</span>
+        <span class="bas-total">${fmt(total)}</span>
+      </button>
+      ${abierto ? `<div class="bas-body">
+        <div class="bas-table-wrap"><table class="bas-table">
+          <thead><tr>
+            <th style="width:86px">Tipo</th><th>Insumo</th><th style="width:64px">Un.</th>
+            <th style="width:96px">Cant.</th><th style="width:110px">Costo</th>
+            <th style="width:56px">Op</th><th style="width:104px">Importe</th><th style="width:34px"></th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>
+        <div class="bas-foot">
+          <span>
+            <button class="btn btn-xs" onclick="addBasicoPart('${escHtml(cod)}','M')">+ Material</button>
+            <button class="btn btn-xs" onclick="addBasicoPart('${escHtml(cod)}','O')">+ Mano de obra</button>
+            <button class="btn btn-xs" onclick="addBasicoPart('${escHtml(cod)}','E')">+ Equipo</button>
+          </span>
+          <span class="bas-foot-right">
+            ${editado ? `<button class="btn btn-xs" onclick="resetBasico('${escHtml(cod)}')">↺ Restablecer original</button>` : ''}
+            <span class="bas-nota">Los cambios afectan a todos los conceptos que usan este básico.</span>
+          </span>
+        </div>
+      </div>` : ''}
+    </article>`;
+  }
+
+  // ── Tarjeta de una cuadrilla ─────────────────────────────────────────────
+  function tarjetaCuadrilla(cod, nUsos) {
+    const dict    = I_DICT[cod] || ['', 'JOR', 0];
+    const partes  = crewPartsFor(cod);
+    const abierto = _basicosAbiertos.has(cod);
+    const editada = cuadrillaEditada(cod);
+    const total   = round2(partes.reduce((s, p) => {
+      const w = getWorkerDictEntry(p.cod);
+      return s + Number(p.q || 0) * Number(w?.[2] || 0);
+    }, 0));
+
+    const filas = partes.map((p, k) => {
+      const w = getWorkerDictEntry(p.cod) || ['', 'JOR', 0];
+      const salario = Number(w[2] || 0);
+      return `<tr>
+        <td><span class="ins-crew-code">${escHtml(displayWorkerCode(p.cod))}</span></td>
+        <td>${escHtml(w[0] || '')}</td>
+        <td><input type="number" step="any" min="0" class="bas-num-input" value="${Number(p.q || 0)}"
+                   oninput="onCuadrillaQtyChange('${escHtml(cod)}',${k},this.value)"></td>
+        <td class="basico-num">${fmt(salario)}</td>
+        <td class="basico-num"><strong>${fmt(Number(p.q || 0) * salario)}</strong></td>
+      </tr>`;
+    }).join('');
+
+    return `<article class="bas-card${abierto ? ' abierto' : ''}">
+      <button class="bas-head" onclick="toggleBasico('${escHtml(cod)}')" aria-expanded="${abierto}">
+        <span class="bas-caret">${abierto ? '▾' : '▸'}</span>
+        <span class="bas-cod">${escHtml(displayWorkerCode(cod))}</span>
+        <span class="bas-desc-head">${escHtml(dict[0] || cod)}
+          ${editada ? '<span class="bas-badge">modificada</span>' : ''}
+          <span class="bas-usos">Se usa ${usos(nUsos)}</span>
+        </span>
+        <span class="bas-unit">${escHtml(dict[1] || 'JOR')}</span>
+        <span class="bas-total">${fmt(total)}</span>
+      </button>
+      ${abierto ? `<div class="bas-body">
+        <div class="bas-table-wrap"><table class="bas-table">
+          <thead><tr>
+            <th style="width:86px">Clave</th><th>Trabajador</th>
+            <th style="width:96px">Cant.</th><th style="width:120px">Salario / jornada</th><th style="width:110px">Importe</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>
+        <div class="bas-foot">
+          <span class="bas-nota">El salario sale del módulo FASAR. Aquí se ajusta cuántos integrantes lleva la cuadrilla.</span>
+          <span class="bas-foot-right">
+            ${editada ? `<button class="btn btn-xs" onclick="resetCuadrilla('${escHtml(cod)}')">↺ Restablecer original</button>` : ''}
+            <button class="btn btn-xs" onclick="switchView('fasar')">Ajustar salarios en FASAR →</button>
+          </span>
+        </div>
+      </div>` : ''}
+    </article>`;
+  }
+
+  const listaObra = [...obra.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es', { numeric: true }));
+  const listaCuad = [...cuadrillas.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es', { numeric: true }));
+
+  if (!listaObra.length && !listaCuad.length) {
+    sub.textContent = 'Aquí aparecerán los básicos y cuadrillas que use tu presupuesto.';
+    body.innerHTML = '<div class="insumos-list-empty">Tu presupuesto todavía no usa ningún básico. Agrega conceptos y volverán a aparecer aquí para editarlos.</div>';
     return;
   }
-  body.innerHTML = `<div class="basicos-grid">${basics.map(b => {
-    const rows = b.kind === 'cuadrilla' ? b.parts.map(part => {
-      const worker = getWorkerDictEntry(part.cod) || ['', 'JOR', 0];
-      const qty = Number(part.q || 0);
-      const salary = Number(worker[2] || 0);
-      return `<tr>
-        <td><span class="ins-crew-code">${escHtml(displayWorkerCode(part.cod))}</span></td>
-        <td>${escHtml(worker[0] || '')}</td>
-        <td>${escHtml(worker[1] || 'JOR')}</td>
-        <td class="basico-num">${qty.toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
-        <td class="basico-num">${fmt(salary)}</td>
-        <td class="basico-num"><strong>${fmt(qty * salary)}</strong></td>
-      </tr>`;
-    }).join('') : (b.parts.length ? b.parts.map(part => {
-      const cost = Number(part.cs || 0);
-      const amount = Number(part.i || 0);
-      const typeText = part.t === 'M' ? 'Mat' : (part.t === 'B' ? 'Básico' : (part.t === 'O' ? 'MO' : 'Equipo'));
-      const typeCls = part.t === 'O' ? 'mo' : (part.t === 'E' ? 'eq' : (part.t === 'B' ? 'bas' : ''));
-      return `<tr>
-        <td><span class="ins-list-type ${typeCls}">${escHtml(typeText)}</span></td>
-        <td>${escHtml(part.c || '')}</td>
-        <td>${escHtml(part.u || '')}</td>
-        <td class="basico-num">${part.op === '/' ? '<span class="basico-op" title="El costo se divide entre esta cantidad (rendimiento)">÷</span> ' : ''}${Number(part.q || 0).toLocaleString('es-MX', { maximumFractionDigits: 6 })}</td>
-        <td class="basico-num">${fmt(cost)}</td>
-        <td class="basico-num"><strong>${fmt(amount)}</strong></td>
-      </tr>`;
-    }).join('') : `<tr><td colspan="6" class="insumos-list-empty">Este básico está disponible con P.U., sin composición interna cargada.</td></tr>`);
-    return `<article class="basico-card">
-      <div class="basico-card-head">
-        <div>
-          <div class="basico-code">${escHtml(b.kind === 'cuadrilla' ? 'Cuadrilla' : 'Básico de obra')} · ${escHtml(b.unit)}${b.cod ? ` · <span class="basico-cod" title="Hay básicos con la misma descripción y distinto rendimiento: el código los distingue">${escHtml(b.cod)}</span>` : ''}</div>
-          <div class="basico-desc">${escHtml(b.desc)}</div>
-        </div>
-        <div class="basico-price">${fmt(b.total)}</div>
+
+  const nEditados = listaObra.filter(([c]) => basicoEditado(c)).length + listaCuad.filter(([c]) => cuadrillaEditada(c)).length;
+  sub.textContent = `${listaObra.length} básico${listaObra.length === 1 ? '' : 's'} de obra y ${listaCuad.length} cuadrilla${listaCuad.length === 1 ? '' : 's'} en uso`
+    + (nEditados ? ` · ${nEditados} con cambios propios de este presupuesto` : '')
+    + '. Haz clic en uno para ver y editar su composición.';
+
+  const seccion = (titulo, ayuda, items) => !items.length ? '' : `
+    <section class="bas-seccion">
+      <div class="bas-seccion-head">
+        <h3>${escHtml(titulo)}</h3>
+        <span>${escHtml(ayuda)}</span>
       </div>
-      <table class="basico-parts">
-        <thead><tr>
-          <th style="width:92px">${b.kind === 'cuadrilla' ? 'MO' : 'Tipo'}</th>
-          <th>${b.kind === 'cuadrilla' ? 'Trabajador' : 'Insumo'}</th>
-          <th style="width:56px">Un.</th>
-          <th style="width:86px">Cant.</th>
-          <th style="width:98px">${b.kind === 'cuadrilla' ? 'Salario' : 'P.U.'}</th>
-          <th style="width:98px">Importe</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </article>`;
-  }).join('')}</div>`;
+      ${items.join('')}
+    </section>`;
+
+  body.innerHTML =
+    seccion('Básicos de obra', 'Materiales, mano de obra y equipo que forman un precio auxiliar',
+            listaObra.map(([cod, n]) => tarjetaObra(cod, n)))
+  + seccion('Cuadrillas · mano de obra', 'Integrantes y salarios que forman el costo por jornada',
+            listaCuad.map(([cod, n]) => tarjetaCuadrilla(cod, n)));
+}
+
+// Elegir un insumo del catálogo dentro de la composición de un básico.
+function onBasicoPartPick(cod, idx, valor) {
+  const partes = asegurarBasicoEditable(cod);
+  const p = partes[idx];
+  if (!p) return;
+  const { raw, cod: insCod } = parseCatalogValue(valor);
+  if (p.cod && I_DICT[p.cod] && I_DICT[p.cod][0] === raw) return;  // mismo insumo, nada que hacer
+  const dict = I_DICT[insCod];
+  if (dict) {
+    p.cod = insCod; p.c = dict[0] || ''; p.u = dict[1] || ''; p.cs = Number(dict[2] || 0);
+  } else {
+    p.cod = ''; p.c = raw;
+  }
+  recalcInsumoAmounts(partes);
+  propagarBasicos();
+  renderBasicosList();
 }
 
 function switchView(view) {
@@ -6794,8 +7147,10 @@ function printBasicos() {
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
 
-  // Recolectar cuadrillas
-  const crewBasics = Object.entries(CREW_COMPOSITION).map(([cod, parts]) => {
+  // Solo lo que usa este presupuesto, igual que la vista en pantalla
+  const _uso = basicosDelPresupuesto();
+  const crewBasics = [..._uso.cuadrillas.keys()].map(cod => {
+    const parts = crewPartsFor(cod);
     const entry = I_DICT[cod] || ['', 'JOR', 0];
     const total = parts.reduce((sum, part) => {
       const worker = getWorkerDictEntry(part.cod);
@@ -6805,11 +7160,7 @@ function printBasicos() {
   });
 
   // Recolectar básicos de obra
-  const obraCodes = new Set();
-  Object.values(I_BREAKDOWN || {}).forEach(rows => {
-    (rows || []).forEach(i => { if (i.t === 'B' && i.cod) obraCodes.add(i.cod); });
-  });
-  const obraBasics = Array.from(obraCodes).map(cod => {
+  const obraBasics = [..._uso.obra.keys()].map(cod => {
     const entry = I_DICT[cod] || ['', '', 0];
     const rawParts = (I_BREAKDOWN[cod] || []).map(i => {
       const dict = I_DICT[i.cod] || [i.c || '', i.u || '', i.cs || 0];
@@ -6820,9 +7171,8 @@ function printBasicos() {
     return { kind: 'obra', cod, desc: entry[0] || cod, unit: entry[1] || '', total: round2(total), parts: rawParts };
   });
 
-  const filterLabel = activeBasicoFilter === 'cuadrilla' ? 'Cuadrillas' : activeBasicoFilter === 'obra' ? 'Básicos de obra' : 'Todos';
+  const filterLabel = 'Básicos del presupuesto';
   const basics = crewBasics.concat(obraBasics)
-    .filter(b => activeBasicoFilter === 'all' || b.kind === activeBasicoFilter)
     .sort((a, b) => a.kind.localeCompare(b.kind, 'es') || a.cod.localeCompare(b.cod, 'es', { numeric: true }));
 
   if (!basics.length) { toast('No hay básicos para imprimir'); return; }
