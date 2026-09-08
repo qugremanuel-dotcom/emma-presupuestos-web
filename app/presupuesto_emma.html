@@ -2619,6 +2619,8 @@ function resetData() {
   STATE.customMaterialCosts = {};
   STATE.customBasicos = {};
   STATE.customCuadrillas = {};
+  applyCustomBasicos();      // devolver el catálogo en memoria a su estado de fábrica
+  recalcCrewDictionaryPrices();
   activePartida = 'A';
   applyFasarDictionaryPrices();
   hydrateMeta(); hydrateFasar(); render();
@@ -3421,19 +3423,70 @@ function costoDeComposicion(parts) {
   return round2(total); // pueden diferir en un centavo.
 }
 
+// Códigos actualmente volcados sobre el catálogo en memoria. Hace falta para
+// poder DESHACERLOS: el catálogo es único para toda la sesión, así que si al
+// abrir otra obra no se revierte, esa obra hereda los precios de la anterior.
+let _basicosAplicados = new Set();
+
 // Vuelca STATE.customBasicos sobre el catálogo en memoria (I_BREAKDOWN e
-// I_DICT), que es de donde leen el resto de los cálculos.
+// I_DICT), y revierte los que este presupuesto ya no tiene editados.
 function applyCustomBasicos() {
   const custom = STATE.customBasicos || {};
+
+  // 1) Devolver a su composición de fábrica los que ya no están editados.
+  _basicosAplicados.forEach(cod => {
+    if (custom[cod]) return;
+    const orig = _basicosOriginales[cod];
+    if (!orig) return;
+    I_BREAKDOWN[cod] = orig.map(p => ({ ...p }));
+    if (I_DICT[cod]) I_DICT[cod][2] = round2(I_BREAKDOWN[cod].reduce((s, p) => s + (p.i || 0), 0));
+  });
+  _basicosAplicados = new Set();
+
+  // 2) Aplicar los de este presupuesto.
   Object.keys(custom).forEach(cod => {
     if (!_basicosOriginales[cod] && I_BREAKDOWN[cod]) {
       _basicosOriginales[cod] = I_BREAKDOWN[cod].map(p => ({ ...p }));
     }
     const parts = (custom[cod] || []).map(p => ({ ...p }));
+    // El costo de cada componente se toma del catálogo vivo, salvo el que el
+    // usuario haya tecleado a mano: si no, un básico editado se quedaría con
+    // precios de material congelados para siempre.
+    parts.forEach(p => {
+      if (p.csManual) return;
+      const d = I_DICT[p.cod];
+      if (d) p.cs = Number(d[2] || 0);
+    });
     const total = costoDeComposicion(parts);
     I_BREAKDOWN[cod] = parts;
     if (I_DICT[cod]) I_DICT[cod][2] = total;
+    _basicosAplicados.add(cod);
   });
+}
+
+// Recalcula, en cascada, los básicos que contienen alguno de estos códigos.
+// Se usa cuando cambia una cuadrilla o un básico anidado: sin esto la tarjeta
+// mostraría el precio nuevo y los conceptos seguirían con el viejo.
+function recalcBasicosQueUsan(afectados) {
+  for (let pasada = 0; pasada < 3; pasada++) {
+    const nuevos = new Set();
+    Object.keys(I_BREAKDOWN).forEach(cod => {
+      if (!I_DICT[cod]) return;
+      const parts = I_BREAKDOWN[cod];
+      if (!parts || !parts.length) return;
+      if (!parts.some(p => afectados.has(p.cod))) return;
+      parts.forEach(p => {
+        if (p.csManual || !afectados.has(p.cod)) return;
+        const d = I_DICT[p.cod];
+        if (d) p.cs = Number(d[2] || 0);
+      });
+      const total = costoDeComposicion(parts);
+      if (I_DICT[cod][2] !== total) { I_DICT[cod][2] = total; nuevos.add(cod); }
+    });
+    if (!nuevos.size) break;
+    nuevos.forEach(c => afectados.add(c));
+  }
+  return afectados;
 }
 
 // Integrantes de una cuadrilla: los editados si los hay, si no los de fábrica.
@@ -3444,16 +3497,27 @@ function crewPartsFor(cod) {
 
 // Tras tocar un básico hay que rehacer los importes de cada concepto que lo
 // use y los totales del presupuesto.
-function propagarBasicos() {
+// Rehace los importes SOLO de los conceptos que usan alguno de los códigos
+// tocados. Antes recorría todas las filas y reescribía el costo de cualquier
+// básico, con lo que borraba lo que el usuario hubiera ajustado a mano en el
+// panel de un concepto, y aplastaba los precios unitarios tecleados.
+function propagarBasicos(codigosTocados) {
   applyCustomBasicos();
   recalcCrewDictionaryPrices();
+  const afectados = recalcBasicosQueUsan(new Set(codigosTocados || []));
+
   PARTIDAS.forEach(([l]) => {
     (STATE.rows[l] || []).forEach(r => {
       if (!r.insumos || !r.insumos.length) { r.matIVA = null; return; }
+      // Un precio unitario tecleado por el usuario manda: no se toca la fila.
+      if (r.pu_manual) return;
+      if (!r.insumos.some(i => afectados.has(i.cod))) return;
+
       r.insumos.forEach(ins => {
-        if (ins.custom) return;
+        if (ins.custom) return;                    // insumo escrito o editado a mano
+        if (!afectados.has(ins.cod)) return;        // no lo cambió esta edición
         const dict = I_DICT[ins.cod];
-        if ((ins.t === 'B' || ins.t === 'O') && dict) ins.cs = Number(dict[2] || 0);
+        if (dict) ins.cs = Number(dict[2] || 0);
       });
       recalcInsumoAmounts(r.insumos);
       let mat = 0, mo = 0, total = 0, matIVA = 0;
@@ -3611,7 +3675,9 @@ function recalcInsumoAmounts(insumos) {
 }
 
 function getCrewParts(cod) {
-  return CREW_COMPOSITION[String(cod || '').trim()] || null;
+  const c = String(cod || '').trim();
+  if (!CREW_COMPOSITION[c]) return null;
+  return crewPartsFor(c);   // los integrantes editados en este presupuesto, si los hay
 }
 
 function displayInsumoCode(cod) {
@@ -4136,6 +4202,9 @@ function onPUInput(idx, val) {
   const n = parseFloat(val);
   // safe = precio con indirectos que tecleó el usuario
   const safe = isNaN(n) ? 0 : Math.max(0, n);
+  // Marca explícita de "precio puesto a mano": p_orig no sirve para esto,
+  // porque también se activa al editar los insumos de la fila.
+  r.pu_manual = true;
   if (!r.libre && r.p_orig == null) {
     r.p_orig = r.p; r.mat_orig = r.mat; r.mo_orig = r.mo;
   }
@@ -4183,7 +4252,7 @@ function resetPrice(idx) {
     delete r.p_orig; delete r.mat_orig; delete r.mo_orig;
   }
   // If insumos were loaded and edited, also reset them
-  delete r.insumos; delete r.insumos_modified;
+  delete r.insumos; delete r.insumos_modified; delete r.pu_manual;
   recalcTotals(); renderPanel(); renderSidebar(); save();
   toast('Precio restaurado');
 }
@@ -4602,6 +4671,7 @@ function onBasicoPartChange(cod, idx, campo, valor) {
   if (campo === 'q' || campo === 'cs') {
     const n = parseFloat(valor);
     p[campo] = isNaN(n) ? 0 : Math.max(0, n);
+    if (campo === 'cs') p.csManual = true;   // costo puesto a mano: no refrescarlo del catálogo
   } else if (campo === 'op') {
     p.op = valor === '/' ? '/' : '*';
   } else if (campo === 't') {
@@ -4610,14 +4680,14 @@ function onBasicoPartChange(cod, idx, campo, valor) {
     p[campo] = valor;
   }
   recalcInsumoAmounts(partes);
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
 }
 
 function addBasicoPart(cod, tipo) {
   const partes = asegurarBasicoEditable(cod);
   partes.push({ t: tipo, cod: '', c: '', u: 'PZA', cs: 0, op: '*', q: 1, i: 0 });
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
 }
 
@@ -4625,7 +4695,7 @@ function delBasicoPart(cod, idx) {
   const partes = asegurarBasicoEditable(cod);
   partes.splice(idx, 1);
   recalcInsumoAmounts(partes);
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
 }
 
@@ -4634,7 +4704,7 @@ function resetBasico(cod) {
   delete (STATE.customBasicos || {})[cod];
   if (_basicosOriginales[cod]) I_BREAKDOWN[cod] = _basicosOriginales[cod].map(p => ({ ...p }));
   if (I_DICT[cod] && I_BREAKDOWN[cod]) I_DICT[cod][2] = round2(I_BREAKDOWN[cod].reduce((s, p) => s + (p.i || 0), 0));
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
   toast('Básico restablecido');
 }
@@ -4649,14 +4719,14 @@ function onCuadrillaQtyChange(cod, idx, valor) {
   if (!p) return;
   const n = parseFloat(valor);
   p.q = isNaN(n) ? 0 : Math.max(0, n);
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
 }
 
 function resetCuadrilla(cod) {
   if (!confirm('¿Devolver esta cuadrilla a sus integrantes originales?')) return;
   delete (STATE.customCuadrillas || {})[cod];
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
   toast('Cuadrilla restablecida');
 }
@@ -4697,8 +4767,8 @@ function renderBasicosList() {
           ${p.cod ? `<span class="ins-row-cod">${escHtml(p.cod)}</span>` : ''}
         </td>
         <td><input type="text" class="bas-input bas-un" value="${escHtml(p.u)}" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'u',this.value)"></td>
-        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.q}" oninput="onBasicoPartChange('${escHtml(cod)}',${k},'q',this.value)"></td>
-        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.cs}" oninput="onBasicoPartChange('${escHtml(cod)}',${k},'cs',this.value)"></td>
+        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.q}" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'q',this.value)"></td>
+        <td><input type="number" step="any" min="0" class="bas-num-input" value="${p.cs}" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'cs',this.value)"></td>
         <td><select class="bas-sel bas-op" onchange="onBasicoPartChange('${escHtml(cod)}',${k},'op',this.value)">
           <option value="*"${p.op === '*' ? ' selected' : ''}>×</option>
           <option value="/"${p.op === '/' ? ' selected' : ''}>÷</option>
@@ -4761,7 +4831,7 @@ function renderBasicosList() {
         <td><span class="ins-crew-code">${escHtml(displayWorkerCode(p.cod))}</span></td>
         <td>${escHtml(w[0] || '')}</td>
         <td><input type="number" step="any" min="0" class="bas-num-input" value="${Number(p.q || 0)}"
-                   oninput="onCuadrillaQtyChange('${escHtml(cod)}',${k},this.value)"></td>
+                   onchange="onCuadrillaQtyChange('${escHtml(cod)}',${k},this.value)"></td>
         <td class="basico-num">${fmt(salario)}</td>
         <td class="basico-num"><strong>${fmt(Number(p.q || 0) * salario)}</strong></td>
       </tr>`;
@@ -4841,7 +4911,7 @@ function onBasicoPartPick(cod, idx, valor) {
     p.cod = ''; p.c = raw;
   }
   recalcInsumoAmounts(partes);
-  propagarBasicos();
+  propagarBasicos([cod]);
   renderBasicosList();
 }
 
