@@ -3487,7 +3487,11 @@ function applyCustomBasicos() {
 // usa cuando cambia una cuadrilla o un básico anidado: sin esto la tarjeta
 // mostraría el precio nuevo y los conceptos seguirían con el viejo.
 function recalcBasicosQueUsan(afectados) {
-  for (let pasada = 0; pasada < 3; pasada++) {
+  // Se itera hasta que una pasada no cambie nada. El catálogo que se envía solo
+  // anida básicos un nivel, pero el usuario puede anidar más desde la vista de
+  // Básicos, y con un número fijo de pasadas el eslabón de arriba se quedaba
+  // con el precio viejo. El tope es una red contra un ciclo que se colara.
+  for (let pasada = 0; pasada < 12; pasada++) {
     const nuevos = new Set();
     Object.keys(I_BREAKDOWN).forEach(cod => {
       if (!I_DICT[cod]) return;
@@ -3537,6 +3541,10 @@ function refrescarCatalogoDelPresupuesto(codigosExtra) {
   const semillas = new Set(codigosExtra || []);
   revertidos.forEach(c => semillas.add(c));
   materiales.forEach(c => semillas.add(c));
+  // Las cuadrillas van siempre: recalcCrewDictionaryPrices acaba de rehacer sus
+  // precios desde FASAR y desde los integrantes de esta obra, y sin sembrarlas
+  // los básicos con mano de obra nunca se enteraban del cambio.
+  Object.keys(CREW_COMPOSITION).forEach(c => semillas.add(c));
   Object.keys(STATE.customBasicos   || {}).forEach(c => semillas.add(c));
   Object.keys(STATE.customCuadrillas || {}).forEach(c => semillas.add(c));
   return recalcBasicosQueUsan(semillas);
@@ -3714,6 +3722,7 @@ function applyCustomMaterialsToBudget() {
       }
       let changed = false;
       r.insumos.forEach(ins => {
+        if (ins.custom || ins.csManual) return;   // costo escrito o tecleado a mano
         if ((ins.t === 'M' || ins.t === 'B') && ins.cod && I_DICT[ins.cod]) {
           const newCs = Number(I_DICT[ins.cod][2] || 0);
           if (Math.abs(newCs - (ins.cs || 0)) > 0.001) {
@@ -4766,12 +4775,17 @@ function partesDeBasico(cod) {
   const base = I_BREAKDOWN[cod] || (STATE.customBasicos || {})[cod] || [];
   return base.map(i => {
     const dict = I_DICT[i.cod] || [i.c || '', i.u || '', i.cs || 0];
-    return {
+    const parte = {
       t: i.t || 'M', cod: i.cod || '',
       c: i.c || dict[0] || '', u: i.u || dict[1] || '',
       cs: Number(i.cs ?? dict[2] ?? 0),
       op: i.op || '*', q: Number(i.q || 0), i: 0,
     };
+    // Sin arrastrar la marca, recalcInsumoAmounts repone el costo de las líneas
+    // de mano de obra desde el diccionario y se pierde lo que el usuario tecleó.
+    if (i.csManual) parte.csManual = true;
+    if (i.custom)   parte.custom   = true;
+    return parte;
   });
 }
 
@@ -5052,6 +5066,10 @@ function onBasicoPartPick(cod, idx, valor) {
     renderBasicosList();   // devolver el desplegable a su valor anterior
     return;
   }
+  // La línea pasa a ser otro insumo: el costo que se hubiera tecleado para el
+  // anterior ya no aplica. Sin borrar la marca, la línea nueva queda congelada
+  // y deja de seguir al catálogo para siempre.
+  delete p.csManual;
   const dict = I_DICT[insCod];
   if (dict) {
     p.cod = insCod; p.c = dict[0] || ''; p.u = dict[1] || ''; p.cs = Number(dict[2] || 0);

@@ -50,6 +50,8 @@ const FUNCIONES = [
   'recalcConceptFromInsumos',
   'creariaCiclo',
   'partesDeBasico',
+  'onBasicoPartPick',
+  'parseCatalogValue',
   'asegurarBasicoEditable',
   'basicosDelPresupuesto',
 ];
@@ -110,6 +112,8 @@ let I_BREAKDOWN = {};
 let _basicosOriginales = {};
 let _cuadrillasOriginales = {};
 let _catalogoTocado = new Map();
+let _catalogDescToCod = {};
+let _catalogAmbiguas = new Set();
 const STATE = {
   rows: { A: [] },
   customBasicos: {},
@@ -120,6 +124,7 @@ const STATE = {
 function save() {}
 function calcularPresupuesto() {}
 function toast() {}
+function renderBasicosList() {}
 function render() {}
 function recalcRowFromCurrentInsumos() {}
 function syncInsumoDescriptions() { return 0; }
@@ -138,6 +143,7 @@ globalThis.__api = {
   set _catalogoTocado(v) { _catalogoTocado = v; },
   set _basicosOriginales(v) { _basicosOriginales = v; },
   set _cuadrillasOriginales(v) { _cuadrillasOriginales = v; },
+  set _catalogDescToCod(v) { _catalogDescToCod = v; },
   STATE,
   CREW_COMPOSITION,
   round2,
@@ -183,6 +189,10 @@ export function resetFabrica() {
   api.STATE.customBasicos = {};
   api.STATE.customCuadrillas = {};
   api.STATE.customMaterialCosts = {};
+  // Índice descripción → código, como lo arma hydrateInsumoCatalogOptions.
+  const idx = {};
+  Object.keys(api.I_DICT).forEach(cod => { const d = api.I_DICT[cod][0]; if (d && !(d in idx)) idx[d] = cod; });
+  api._catalogDescToCod = idx;
   return api;
 }
 

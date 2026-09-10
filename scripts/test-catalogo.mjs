@@ -308,13 +308,197 @@ seccion('Costo tecleado a mano en una línea de mano de obra');
       `tecleado ${dePedido}, quedó ${partes[iMO].cs} (diccionario ${api.I_DICT[partes[iMO].cod][2]})`);
 
     // Y una línea de mano de obra SIN marcar sí debe seguir al diccionario.
-    const otras = partes.filter((p, k) => k !== iMO && p.t === 'O' && api.I_DICT[p.cod] && !p.csManual);
-    otras.forEach(p => {
-      ok(`${p.cod} sin marcar sigue tomando el precio del diccionario`,
-        cerca(p.cs, api.I_DICT[p.cod][2]),
-        `cs=${p.cs}, diccionario=${api.I_DICT[p.cod][2]}`);
-    });
+    // Se busca un básico con DOS líneas de mano de obra: con 10401-291, que
+    // solo tiene una, esta comprobación iteraba sobre una lista vacía.
+    const conDosMO = Object.keys(api.I_BREAKDOWN).find(cod =>
+      api.I_DICT[cod] &&
+      (api.I_BREAKDOWN[cod] || []).filter(p => p.t === 'O' && api.I_DICT[p.cod] && !api.isGlobalMoPercentInsumo(p)).length >= 2);
+    ok('existe un básico con dos líneas de mano de obra para probarlo', !!conDosMO);
+    if (conDosMO) {
+      const ps = api.I_BREAKDOWN[conDosMO].map(p => ({ ...p }));
+      const idx = ps.map((p, k) => ({ p, k }))
+        .filter(x => x.p.t === 'O' && api.I_DICT[x.p.cod] && !api.isGlobalMoPercentInsumo(x.p))
+        .map(x => x.k);
+      ps[idx[0]].cs = 4321; ps[idx[0]].csManual = true;
+      api.recalcInsumoAmounts(ps);
+      ok('la línea marcada conserva su costo', cerca(ps[idx[0]].cs, 4321), `cs=${ps[idx[0]].cs}`);
+      ok('la línea sin marcar sigue al diccionario',
+        cerca(ps[idx[1]].cs, api.I_DICT[ps[idx[1]].cod][2]),
+        `cs=${ps[idx[1]].cs}, diccionario=${api.I_DICT[ps[idx[1]].cod][2]}`);
+    }
   }
+}
+
+// ── 17. La marca sobrevive al repintado de la tarjeta ──────────────────────
+seccion('La tarjeta conserva el costo tecleado en una línea');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const partes = api.asegurarBasicoEditable(BAS);
+  const iMO = partes.findIndex(p => p.t === 'O' && api.I_DICT[p.cod]);
+  partes[iMO].cs = 1000;
+  partes[iMO].csManual = true;
+  api.refrescarCatalogoDelPresupuesto();
+
+  const tarjeta = api.partesDeBasico(BAS);
+  api.recalcInsumoAmounts(tarjeta);   // lo que hace tarjetaObra al dibujar
+  ok('el costo tecleado sobrevive al repintado',
+    cerca(tarjeta[iMO].cs, 1000),
+    `cs=${tarjeta[iMO].cs}, diccionario=${api.I_DICT[tarjeta[iMO].cod][2]}`);
+}
+
+// ── 18. Cambiar el insumo de una línea suelta la marca ─────────────────────
+seccion('Cambiar de insumo suelta el costo tecleado');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const partes = api.asegurarBasicoEditable(BAS);
+  partes[0].cs = 5000;
+  partes[0].csManual = true;
+  // onBasicoPartPick sobre esa línea, con otro insumo del catálogo.
+  api.onBasicoPartPick(BAS, 0, api.I_DICT['302-CAL-0102'][0]);
+  const p = (api.STATE.customBasicos[BAS] || [])[0];
+  ok('la línea deja de estar marcada como tecleada a mano',
+    !p.csManual,
+    `csManual=${p.csManual}`);
+  ok('la línea toma el precio del insumo nuevo',
+    cerca(p.cs, api.I_DICT['302-CAL-0102'][2]),
+    `cs=${p.cs}, esperado ${api.I_DICT['302-CAL-0102'][2]}`);
+}
+
+// ── 19. Un costo tecleado en un concepto sobrevive a Actualizar ────────────
+seccion('Actualizar materiales respeta el costo tecleado en un concepto');
+{
+  const api = resetFabrica();
+  const CONC = Object.keys(FABRICA.breakdown).find(c =>
+    !api.I_DICT[c] && (FABRICA.breakdown[c] || []).some(p => p.t === 'M' && api.I_DICT[p.cod]));
+  const MAT = FABRICA.breakdown[CONC].find(p => p.t === 'M' && api.I_DICT[p.cod]).cod;
+  const r = { cod: CONC, libre: false, qty: 1 };
+  api.loadInsumosForRow(r);
+  r.p = api.round2(r.insumos.reduce((s, i) => s + Number(i.i || 0), 0));
+  const ins = r.insumos.find(i => i.cod === MAT);
+  ins.cs = 7777; ins.csManual = true;
+  api.STATE.rows.A = [r];
+  api.STATE.customMaterialCosts = { [MAT]: api.round2(FABRICA.dict[MAT][2] * 2) };
+  api.applyCustomMaterialsToBudget();
+  const d = api.STATE.rows.A[0].insumos.find(i => i.cod === MAT);
+  ok('el costo tecleado no se pisa',
+    cerca(d.cs, 7777),
+    `tecleado 7777, quedó ${d.cs}`);
+}
+
+// ── 20. Un cambio en el salario llega a los básicos con mano de obra ───────
+seccion('El precio de la mano de obra llega a los básicos');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const antes = api.I_DICT[BAS][2];
+  const lineaMO = api.I_BREAKDOWN[BAS].find(p => p.t === 'O' && api.CREW_COMPOSITION[p.cod]);
+  ok('el básico de prueba lleva una cuadrilla', !!lineaMO);
+  if (lineaMO) {
+    const peon = api.CREW_COMPOSITION[lineaMO.cod][0].cod;
+    api.I_DICT[peon][2] = api.round2(Number(api.I_DICT[peon][2]) * 2);   // como haría FASAR
+    api.refrescarCatalogoDelPresupuesto();
+    ok('el básico se mueve al subir el salario',
+      !cerca(api.I_DICT[BAS][2], antes),
+      `antes ${antes}, después ${api.I_DICT[BAS][2]}`);
+  }
+}
+
+// ── 21. Un precio de material propio llega a los básicos ───────────────────
+seccion('Un precio de material propio llega a los básicos que lo usan');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const mat = FABRICA.breakdown[BAS].find(p => p.t === 'M' && api.I_DICT[p.cod]);
+  ok('el básico de prueba lleva un material', !!mat);
+  if (mat) {
+    const antes = api.I_DICT[BAS][2];
+    api.STATE.customMaterialCosts = { [mat.cod]: api.round2(FABRICA.dict[mat.cod][2] * 2) };
+    api.refrescarCatalogoDelPresupuesto();
+    ok('el básico sube al subir el material',
+      api.I_DICT[BAS][2] > antes,
+      `antes ${antes}, después ${api.I_DICT[BAS][2]}`);
+  }
+}
+
+// ── 22. Aislamiento con cuadrillas (la prueba 6 no las tocaba) ─────────────
+seccion('Aislamiento entre obras — cuadrillas');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const lineaMO = api.I_BREAKDOWN[BAS].find(p => p.t === 'O' && api.CREW_COMPOSITION[p.cod]);
+  const CUAD = lineaMO.cod;
+  const deFabricaCuad = FABRICA.dict[CUAD][2];
+  const deFabricaBas = FABRICA.dict[BAS][2];
+
+  abrirOtraObra(api, {
+    cuadrillas: { [CUAD]: api.CREW_COMPOSITION[CUAD].map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 3 } : { ...p }) },
+  });
+  ok('la obra A ve su cuadrilla editada',
+    !cerca(api.I_DICT[CUAD][2], deFabricaCuad),
+    `fábrica ${deFabricaCuad}, obra A ${api.I_DICT[CUAD][2]}`);
+  ok('y el básico que la usa también se movió',
+    !cerca(api.I_DICT[BAS][2], deFabricaBas));
+
+  abrirOtraObra(api, {});
+  ok('abrir otra obra devuelve la cuadrilla a fábrica',
+    cerca(api.I_DICT[CUAD][2], deFabricaCuad),
+    `esperado ${deFabricaCuad}, obtenido ${api.I_DICT[CUAD][2]}`);
+  ok('y el básico que la usa vuelve a fábrica',
+    cerca(api.I_DICT[BAS][2], deFabricaBas),
+    `esperado ${deFabricaBas}, obtenido ${api.I_DICT[BAS][2]}`);
+  const d = diferenciasContraFabrica();
+  ok('el catálogo entero vuelve a fábrica',
+    d.dict.length === 0 && d.breakdown.length === 0,
+    `${d.dict.length} precios y ${d.breakdown.length} composiciones contaminadas`);
+}
+
+// ── 23. El escalado tampoco se aplica en loadInsumosForRow ─────────────────
+seccion('loadInsumosForRow no escala cuando el P.U. viene de un básico');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  api.STATE.customBasicos[BAS] = FABRICA.breakdown[BAS]
+    .map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 6 } : { ...p });
+  const r = { cod: '10301-001', libre: false, qty: 1 };
+  api.STATE.rows.A = [r];
+  api.refrescarCatalogoDelPresupuesto();
+  api.sincronizarFilaConCatalogo(r);
+  api.loadInsumosForRow(r);   // es el que PERSISTE los costos en r.insumos
+
+  const inventados = r.insumos.filter(i => {
+    const dict = api.I_DICT[i.cod];
+    if (!dict || api.isGlobalMoPercentInsumo(i)) return false;
+    const propio = (FABRICA.breakdown['10301-001'].find(p => p.cod === i.cod) || {}).cs;
+    return !cerca(i.cs, dict[2], 0.05) && !(propio != null && cerca(i.cs, propio, 0.05));
+  });
+  ok('ningún costo persistido está escalado',
+    inventados.length === 0,
+    inventados.length ? `${inventados[0].cod}: ${inventados[0].cs} vs catálogo ${api.I_DICT[inventados[0].cod][2]}` : '');
+}
+
+// ── 24. Filas sin desglose materializado en propagarBasicos ────────────────
+seccion('propagarBasicos pone al día las filas nunca abiertas');
+{
+  const api = resetFabrica();
+  const r = { cod: '10301-001', libre: false, qty: 1 };
+  r.p = api.round2(FABRICA.breakdown['10301-001'].reduce((s, p) => s + Number(p.i || 0), 0));
+  api.STATE.rows.A = [r];   // sin r.insumos: nunca se abrió el panel
+  const antes = r.p;
+
+  const BAS = '10401-291';
+  api.STATE.customBasicos[BAS] = FABRICA.breakdown[BAS]
+    .map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 4 } : { ...p });
+  api.propagarBasicos([BAS]);
+
+  ok('el P.U. de la fila nunca abierta se movió',
+    !cerca(r.p, antes),
+    `antes ${antes}, después ${r.p}`);
+  const suma = api.round2(api.getComparableInsumos(r).reduce((s, i) => s + Number(i.i || 0), 0));
+  ok('y cuadra con el desglose que se imprime',
+    cerca(r.p, suma),
+    `P.U. ${r.p}, desglose ${suma}`);
 }
 
 // ── 12. La tarjeta de Básicos no se queda congelada ────────────────────────
