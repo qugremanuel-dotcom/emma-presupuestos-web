@@ -199,6 +199,99 @@ seccion('Invariante: P.U. = suma del desglose');
   }
 }
 
+// ── 8. Un concepto agregado DESPUÉS de editar entra al precio de la obra ───
+seccion('Concepto agregado después de editar un básico');
+{
+  const api = resetFabrica();
+  api.STATE.customCuadrillas['1A5P'] = api.CREW_COMPOSITION['1A5P']
+    .map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 2 } : { ...p });
+  api.refrescarCatalogoDelPresupuesto();
+
+  // addFromPicker parte del precio de fábrica de FLAT y lo sincroniza.
+  const fila = { cod: '10601-013', libre: false, qty: 1 };
+  fila.p = api.round2(FABRICA.breakdown['10601-013'].reduce((s, p) => s + Number(p.i || 0), 0));
+  const pFabrica = fila.p;
+  api.sincronizarFilaConCatalogo(fila);
+
+  ok('el P.U. deja de ser el de fábrica',
+    !cerca(fila.p, pFabrica),
+    `fábrica ${pFabrica}, obtenido ${fila.p}`);
+
+  const desglose = api.round2(api.desgloseDeCatalogo('10601-013')
+    .reduce((s, i) => s + Number(i.i || 0), 0));
+  ok('el P.U. cuadra con su desglose',
+    cerca(fila.p, desglose),
+    `P.U. ${fila.p}, desglose ${desglose}`);
+}
+
+// ── 9. Restaurar el precio no inventa costos ───────────────────────────────
+seccion('Restaurar precio tras editar un básico');
+{
+  const api = resetFabrica();
+  const BAS = '10401-291';
+  const partes = FABRICA.breakdown[BAS].map(p => ({ ...p }));
+  const iMat = partes.findIndex(p => p.t === 'M');
+  partes[iMat] = { ...partes[iMat], q: Number(partes[iMat].q) * 5 };
+  api.STATE.customBasicos[BAS] = partes;
+
+  const r = { cod: '10301-001', libre: false, qty: 1 };
+  r.p = api.round2(FABRICA.breakdown['10301-001'].reduce((s, p) => s + Number(p.i || 0), 0));
+  api.STATE.rows.A = [r];
+  api.refrescarCatalogoDelPresupuesto();
+  api.sincronizarFilaConCatalogo(r);
+
+  // resetPrice: borra el desglose y las banderas, y vuelve al catálogo vivo.
+  delete r.insumos; delete r.insumos_modified; delete r.pu_manual;
+  api.sincronizarFilaConCatalogo(r);
+
+  const insumos = api.getComparableInsumos(r);
+  const inventados = insumos.filter(i => {
+    const d = api.I_DICT[i.cod];
+    if (!d || api.isGlobalMoPercentInsumo(i)) return false;
+    const esperado = Number(d[2] || 0);
+    // Una línea con costo específico propio es legítima; lo que no puede pasar
+    // es que aparezca un costo que no está ni en el catálogo ni en la línea.
+    const propio = (FABRICA.breakdown['10301-001'].find(p => p.cod === i.cod) || {}).cs;
+    return !cerca(i.cs, esperado, 0.05) && !(propio != null && cerca(i.cs, propio, 0.05));
+  });
+  ok('ningún insumo del desglose muestra un costo inventado',
+    inventados.length === 0,
+    inventados.length
+      ? `${inventados.length} inventados (p.ej. ${inventados[0].cod}: desglose ${inventados[0].cs}, catálogo ${api.I_DICT[inventados[0].cod][2]})`
+      : '');
+
+  const suma = api.round2(insumos.reduce((s, i) => s + Number(i.i || 0), 0));
+  ok('el P.U. restaurado cuadra con el desglose',
+    cerca(r.p, suma),
+    `P.U. ${r.p}, desglose ${suma}`);
+}
+
+// ── 10. Un P.U. tecleado a mano se sigue respetando ────────────────────────
+seccion('Un P.U. tecleado a mano manda sobre el catálogo');
+{
+  const api = resetFabrica();
+  const r = { cod: '10301-001', libre: false, qty: 1, p: 99, pu_manual: true };
+  api.STATE.rows.A = [r];
+  api.STATE.customBasicos['10401-291'] = FABRICA.breakdown['10401-291']
+    .map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 4 } : { ...p });
+  api.propagarBasicos(['10401-291']);
+  ok('editar un básico no pisa el P.U. tecleado',
+    cerca(r.p, 99),
+    `esperado 99, obtenido ${r.p}`);
+
+  // Hueco conocido, ANTERIOR a los básicos editables (verificado ejecutando el
+  // mismo caso contra el commit 34facb4: da 43.93 igual). El escalado del
+  // desglose se deshace en parte porque recalcInsumoAmounts repone el costo de
+  // las líneas de mano de obra desde el diccionario y recalcula los %MO, así
+  // que un P.U. tecleado a mano no cuadra con su propio desglose. No se corrige
+  // aquí para no mezclarlo con el aislamiento del catálogo.
+  const suma = api.round2(api.getComparableInsumos(r).reduce((s, i) => s + Number(i.i || 0), 0));
+  if (!cerca(suma, 99, 0.5)) {
+    console.log(`  · hueco conocido: P.U. tecleado ${r.p}, desglose ${suma} ` +
+      '(preexistente, no introducido por los básicos editables)');
+  }
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);

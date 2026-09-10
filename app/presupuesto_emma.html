@@ -3545,7 +3545,16 @@ function propagarBasicos(codigosTocados) {
 
   PARTIDAS.forEach(([l]) => {
     (STATE.rows[l] || []).forEach(r => {
-      if (!r.insumos || !r.insumos.length) { r.matIVA = null; return; }
+      // Una fila que nunca se abrió no tiene desglose materializado, pero su
+      // P.U. depende igual del catálogo: hay que ponerla al día o se queda con
+      // el precio de fábrica mientras su desglose se dibuja con el editado.
+      if (!r.insumos || !r.insumos.length) {
+        r.matIVA = null;
+        if ((I_BREAKDOWN[r.cod] || []).some(p => afectados.has(p.cod))) {
+          sincronizarFilaConCatalogo(r);
+        }
+        return;
+      }
       // Un precio unitario tecleado por el usuario manda: no se toca la fila.
       if (r.pu_manual) return;
       if (!r.insumos.some(i => afectados.has(i.cod))) return;
@@ -3571,6 +3580,51 @@ function propagarBasicos(codigosTocados) {
   });
   calcularPresupuesto(false);
   save();
+}
+
+// ¿El usuario fijó a mano el precio unitario de esta fila? Si lo hizo, el
+// desglose se escala para cuadrar con él; si no, el precio sale del catálogo.
+// p_orig cubre los presupuestos guardados antes de que existiera pu_manual.
+function tienePUEditado(r) {
+  return !!r.pu_manual || r.p_orig != null;
+}
+
+// Desglose de un concepto a precios del catálogo VIVO de este presupuesto.
+// Los conceptos no están en I_DICT, así que la cascada no los recalcula: su
+// precio hay que derivarlo aquí cada vez que haga falta.
+function desgloseDeCatalogo(cod) {
+  const original = I_BREAKDOWN[cod];
+  if (!original || !original.length) return null;
+  const insumos = original.map(i => {
+    const dict = I_DICT[i.cod] || ['?', '', 0];
+    return {
+      t: i.t, cod: i.cod, c: dict[0], u: dict[1],
+      cs: round2(i.cs != null ? i.cs : dict[2]), op: i.op, q: i.q, i: 0,
+    };
+  });
+  recalcInsumoAmounts(insumos);
+  return insumos;
+}
+
+// Pone el P.U. y los montos de una fila al día con el catálogo de este
+// presupuesto. Sin esto, un concepto agregado DESPUÉS de editar un básico
+// entraba con el precio de fábrica mientras su desglose se construía con el
+// precio editado, y el P.U. dejaba de cuadrar con su propio desglose.
+// No materializa r.insumos: el panel lo construye cuando hace falta.
+function sincronizarFilaConCatalogo(r) {
+  if (r.libre || tienePUEditado(r)) return false;
+  const insumos = desgloseDeCatalogo(r.cod);
+  if (!insumos) return false;
+  let mat = 0, mo = 0, total = 0, matIVA = 0;
+  insumos.forEach(i => {
+    total += i.i || 0;
+    if      (i.t === 'M') { mat += i.i || 0; matIVA += i.i || 0; }
+    else if (i.t === 'B') { mat += i.i || 0; matIVA += computeBasicoMatMonto(i); }
+    else                    mo  += i.i || 0;
+  });
+  r.mat = round2(mat); r.matIVA = round2(matIVA);
+  r.mo  = round2(mo);  r.p      = round2(total);
+  return true;
 }
 
 // Básicos y cuadrillas que realmente usa este presupuesto, con cuántos
@@ -4289,6 +4343,9 @@ function resetPrice(idx) {
   }
   // If insumos were loaded and edited, also reset them
   delete r.insumos; delete r.insumos_modified; delete r.pu_manual;
+  // «Restaurar» significa volver al precio del catálogo de ESTE presupuesto,
+  // que incluye sus básicos y materiales propios — no al de fábrica.
+  sincronizarFilaConCatalogo(r);
   recalcTotals(); renderPanel(); renderSidebar(); save();
   toast('Precio restaurado');
 }
@@ -4494,10 +4551,12 @@ function loadInsumosForRow(r) {
   if (r.libre) { r.insumos = r.insumos || []; return; }
   const original = I_BREAKDOWN[r.cod];
   if (!original) { r.insumos = []; return; }
-  // Compute what the sum-of-insumos would be at original prices
+  // Suma del desglose a precios de fábrica.
   const origSum = original.reduce((s, i) => s + (i.i || 0), 0);
-  // If user has custom P.U., scale insumos importes proportionally
-  const ratio = (origSum > 0 && r.p > 0) ? (r.p / origSum) : 1;
+  // El escalado existe para respetar un P.U. tecleado a mano. Solo entonces:
+  // si r.p viene de un básico editado, escalar inventaría costos que no están
+  // en ningún catálogo (la calhidra aparecía a $5,339 en vez de $4,268).
+  const ratio = (tienePUEditado(r) && origSum > 0 && r.p > 0) ? (r.p / origSum) : 1;
   r.insumos = original.map(i => {
     const dict = I_DICT[i.cod] || ['?', '', 0];
     const cs = (i.cs != null ? i.cs : dict[2]) * (Math.abs(ratio - 1) > 0.005 ? ratio : 1);
@@ -4528,7 +4587,8 @@ function getComparableInsumos(r) {
   if (r.libre) return [];
   const original = I_BREAKDOWN[r.cod] || [];
   const origSum = original.reduce((s, i) => s + (i.i || 0), 0);
-  const ratio = (origSum > 0 && r.p > 0) ? (r.p / origSum) : 1;
+  // Mismo criterio que loadInsumosForRow: escalar solo con P.U. tecleado.
+  const ratio = (tienePUEditado(r) && origSum > 0 && r.p > 0) ? (r.p / origSum) : 1;
   const out = original.map(i => {
     const dict = I_DICT[i.cod] || ['?', '', 0];
     const cs = (i.cs != null ? i.cs : dict[2]) * (Math.abs(ratio - 1) > 0.005 ? ratio : 1);
@@ -5219,10 +5279,14 @@ function renderResults(query) {
 }
 function addFromPicker(flatIdx) {
   const c = FLAT[flatIdx];
-  STATE.rows[c._letter].push({
+  const fila = {
     cod: c.cod, c: c.c, u: c.u,
     mat: c.mat, mo: c.mo, p: c.p, qty: 1,
-  });
+  };
+  // FLAT trae el precio de fábrica del catálogo. Si esta obra tiene básicos,
+  // cuadrillas o materiales propios, el precio bueno es el del catálogo vivo.
+  sincronizarFilaConCatalogo(fila);
+  STATE.rows[c._letter].push(fila);
   if (c._letter !== activePartida) activePartida = c._letter;
   closePicker();
   recalcTotals(); renderSidebar(); renderPanel(); save();

@@ -15,7 +15,9 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const HTML = path.join(RAIZ, 'app', 'presupuesto_emma.html');
+// EMMA_HTML permite apuntar a otra copia del archivo — sirve para comprobar si
+// un comportamiento ya existía en un commit anterior en vez de suponerlo.
+const HTML = process.env.EMMA_HTML || path.join(RAIZ, 'app', 'presupuesto_emma.html');
 
 // Funciones que necesitan las pruebas del catálogo. Si alguna se renombra, la
 // extracción falla ruidosamente en vez de probar un objeto vacío.
@@ -37,6 +39,10 @@ const FUNCIONES = [
   'crewConceptMultiplier',
   'computeBasicoMatMonto',
   'loadInsumosForRow',
+  'getComparableInsumos',
+  'tienePUEditado',
+  'desgloseDeCatalogo',
+  'sincronizarFilaConCatalogo',
   'basicosDelPresupuesto',
 ];
 
@@ -128,11 +134,27 @@ globalThis.__api = {
 };
 `;
 
+// Con EMMA_HTML apuntando a un commit anterior, las funciones nuevas no
+// existen todavía: se omiten en vez de reventar, para poder comparar
+// comportamientos entre versiones.
+const comparandoVersiones = !!process.env.EMMA_HTML;
+const disponibles = [];
+const cuerpos = [];
+for (const n of FUNCIONES) {
+  try {
+    cuerpos.push(extraerFuncion(html, n));
+    disponibles.push(n);
+  } catch (e) {
+    if (!comparandoVersiones) throw e;
+    console.log(`  (esta versión no tiene ${n}())`);
+  }
+}
+
 const fuente = [
   PREAMBULO,
   extraerConstObjeto(html, 'CREW_COMPOSITION'),
-  ...FUNCIONES.map(n => extraerFuncion(html, n)),
-  CIERRE,
+  ...cuerpos,
+  CIERRE.replace(FUNCIONES.join(',\n  '), disponibles.join(',\n  ')),
 ].join('\n\n');
 
 const contexto = vm.createContext({ console, JSON, Math, Object, Array, Number, String, Set, Map });
