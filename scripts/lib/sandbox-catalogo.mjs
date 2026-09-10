@@ -45,6 +45,8 @@ const FUNCIONES = [
   'sincronizarFilaConCatalogo',
   'aplicarTotalesDeInsumos',
   'sincronizarFilasConCatalogo',
+  'applyCustomMaterialsToBudget',
+  'ensureMatIVA',
   'recalcConceptFromInsumos',
   'creariaCiclo',
   'partesDeBasico',
@@ -118,6 +120,9 @@ const STATE = {
 function save() {}
 function calcularPresupuesto() {}
 function toast() {}
+function render() {}
+function recalcRowFromCurrentInsumos() {}
+function syncInsumoDescriptions() { return 0; }
 function isFasarWorkerCode() { return false; }
 function displayWorkerCode(c) { return c; }
 function getWorkerDictEntry(cod) { return I_DICT[cod]; }

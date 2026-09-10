@@ -420,6 +420,47 @@ seccion('Abrir un presupuesto guardado con una versión anterior');
     `esperado 77, obtenido ${rm.p}`);
 }
 
+// ── 16. «Actualizar presupuesto» de Materiales mueve TODAS las filas ───────
+seccion('Actualizar precios de materiales en el presupuesto');
+{
+  const api = resetFabrica();
+  const MAT = '302-CEM-0102';
+
+  // Tres filas en los tres estados posibles: nunca abierta (como la deja
+  // addFromPicker), con desglose materializado, y con P.U. tecleado a mano.
+  const sinAbrir = { cod: '10301-001', libre: false, qty: 1 };
+  sinAbrir.p = api.round2(FABRICA.breakdown['10301-001'].reduce((s, p) => s + Number(p.i || 0), 0));
+  api.sincronizarFilaConCatalogo(sinAbrir);
+
+  const abierta = { cod: '10301-002', libre: false, qty: 1 };
+  abierta.p = api.round2(FABRICA.breakdown['10301-002'].reduce((s, p) => s + Number(p.i || 0), 0));
+  api.loadInsumosForRow(abierta);
+
+  const aMano = { cod: '10301-008', libre: false, qty: 1, p: 55, pu_manual: true };
+
+  api.STATE.rows.A = [sinAbrir, abierta, aMano];
+  api.STATE.customMaterialCosts = { [MAT]: api.round2(FABRICA.dict[MAT][2] * 2) };
+
+  // Dos veces seguidas: la segunda no debe dejar nada a medias.
+  api.applyCustomMaterialsToBudget();
+  api.applyCustomMaterialsToBudget();
+
+  [sinAbrir, abierta].forEach(r => {
+    const suma = api.round2(api.getComparableInsumos(r).reduce((s, i) => s + Number(i.i || 0), 0));
+    ok(`${r.cod}: el P.U. cuadra con su desglose tras actualizar materiales`,
+      cerca(r.p, suma),
+      `P.U. ${r.p}, desglose ${suma}`);
+  });
+  ok('la fila con P.U. tecleado a mano no se toca',
+    cerca(aMano.p, 55),
+    `esperado 55, obtenido ${aMano.p}`);
+
+  const deFabrica = api.round2(FABRICA.breakdown['10301-001'].reduce((s, p) => s + Number(p.i || 0), 0));
+  ok('el precio nuevo del material sí llegó al P.U.',
+    !cerca(sinAbrir.p, deFabrica),
+    `fábrica ${deFabrica}, obtenido ${sinAbrir.p}`);
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);

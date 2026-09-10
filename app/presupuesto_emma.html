@@ -3703,7 +3703,15 @@ function applyCustomMaterialsToBudget() {
   refrescarCatalogoDelPresupuesto();   // un básico editado manda sobre el catálogo
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
-      if (!r.insumos) { r.matIVA = null; return; }
+      // Una fila que nunca se abrió no tiene desglose materializado, pero su
+      // P.U. depende igual del catálogo. Antes se descartaba, y como el
+      // desglose que se dibuja e imprime sí lee el catálogo vivo, la fila
+      // declaraba un P.U. y su propio desglose sumaba otro.
+      if (!r.insumos || !r.insumos.length) {
+        r.matIVA = null;
+        sincronizarFilaConCatalogo(r);
+        return;
+      }
       let changed = false;
       r.insumos.forEach(ins => {
         if ((ins.t === 'M' || ins.t === 'B') && ins.cod && I_DICT[ins.cod]) {
@@ -3715,20 +3723,13 @@ function applyCustomMaterialsToBudget() {
           }
         }
       });
-      if (changed) {
-        let mat=0, mo=0, total=0, matIVA=0;
-        r.insumos.forEach(i => {
-          total += i.i || 0;
-          if      (i.t === 'M') { mat += i.i||0; matIVA += i.i||0; }
-          else if (i.t === 'B') { mat += i.i||0; matIVA += computeBasicoMatMonto(i); }
-          else                    mo  += i.i||0;
-        });
-        r.mat = round2(mat); r.matIVA = round2(matIVA);
-        r.mo  = round2(mo);  r.p      = round2(total);
-        r.insumos_modified = true;
-      } else {
-        r.matIVA = null; // forzar recomputo vía ensureMatIVA
-      }
+      // Un P.U. tecleado a mano manda: solo se fuerza a recalcular el IVA.
+      if (tienePUEditado(r)) { r.matIVA = null; return; }
+      // Se recompone la suma aunque no haya cambiado ningún costo: si no, una
+      // fila cuyo desglose ya venía con el precio nuevo se quedaba atrapada
+      // con el P.U. viejo y ningún clic posterior la destrababa.
+      aplicarTotalesDeInsumos(r, r.insumos);
+      if (changed) r.insumos_modified = true;
     });
   });
   calcularPresupuesto(false);
