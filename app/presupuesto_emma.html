@@ -5000,12 +5000,35 @@ function renderBasicosList() {
 }
 
 // Elegir un insumo del catálogo dentro de la composición de un básico.
+// ¿Meter `candidato` dentro de `basico` crearía un ciclo? Un básico que se
+// contiene a sí mismo, aunque sea a través de otros, no tiene precio: la
+// cascada le daría el valor que salga del número de pasadas que haga.
+function creariaCiclo(basico, candidato) {
+  if (!candidato) return false;
+  if (candidato === basico) return true;
+  const vistos = new Set();
+  const cola = [candidato];
+  while (cola.length) {
+    const actual = cola.pop();
+    if (actual === basico) return true;
+    if (vistos.has(actual)) continue;
+    vistos.add(actual);
+    (I_BREAKDOWN[actual] || []).forEach(p => { if (p.cod) cola.push(p.cod); });
+  }
+  return false;
+}
+
 function onBasicoPartPick(cod, idx, valor) {
   const partes = asegurarBasicoEditable(cod);
   const p = partes[idx];
   if (!p) return;
   const { raw, cod: insCod } = parseCatalogValue(valor);
   if (p.cod && I_DICT[p.cod] && I_DICT[p.cod][0] === raw) return;  // mismo insumo, nada que hacer
+  if (creariaCiclo(cod, insCod)) {
+    toast('Ese básico se contiene a sí mismo: no se puede usar aquí');
+    renderBasicosList();   // devolver el desplegable a su valor anterior
+    return;
+  }
   const dict = I_DICT[insCod];
   if (dict) {
     p.cod = insCod; p.c = dict[0] || ''; p.u = dict[1] || ''; p.cs = Number(dict[2] || 0);

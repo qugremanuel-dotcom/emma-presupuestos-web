@@ -370,6 +370,24 @@ seccion('Costo de básico ajustado a mano dentro de un concepto');
   }
 }
 
+// ── 14. Un básico no puede contenerse a sí mismo ───────────────────────────
+seccion('Básicos circulares');
+{
+  const api = resetFabrica();
+  ok('un básico no se acepta dentro de sí mismo',
+    api.creariaCiclo('10401-291', '10401-291'));
+
+  // Ciclo indirecto: 10301-001 contiene 10401-291, así que meter 10301-001
+  // dentro de 10401-291 cerraría el círculo.
+  const contiene = (FABRICA.breakdown['10301-001'] || []).some(p => p.cod === '10401-291');
+  ok('el caso de prueba tiene la cadena esperada', contiene);
+  ok('se detecta el ciclo indirecto',
+    api.creariaCiclo('10401-291', '10301-001'));
+
+  ok('un insumo normal sí se acepta',
+    !api.creariaCiclo('10401-291', '302-CAL-0102'));
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);
