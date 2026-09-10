@@ -43,6 +43,8 @@ const FUNCIONES = [
   'tienePUEditado',
   'desgloseDeCatalogo',
   'sincronizarFilaConCatalogo',
+  'aplicarTotalesDeInsumos',
+  'sincronizarFilasConCatalogo',
   'recalcConceptFromInsumos',
   'creariaCiclo',
   'partesDeBasico',

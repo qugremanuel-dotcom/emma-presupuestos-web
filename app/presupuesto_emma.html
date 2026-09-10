@@ -2262,6 +2262,7 @@ async function startInit() {
   applyFasarDictionaryPrices();
   // Precios de material, básicos y cuadrillas propios, con su cascada.
   refrescarCatalogoDelPresupuesto();
+  sincronizarFilasConCatalogo();   // el presupuesto pudo guardarse con otro catálogo
   hydrateMeta();
   hydrateFasar();
   bindMeta();
@@ -2688,6 +2689,7 @@ function restoreSnapshot(data) {
   STATE.customCuadrillas = data.customCuadrillas || {};
   applyFasarDictionaryPrices();
   refrescarCatalogoDelPresupuesto();
+  sincronizarFilasConCatalogo();   // el respaldo pudo guardarse con otro catálogo
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
   syncInsumoDescriptions(); // el respaldo pudo guardarse con nombres anteriores
   save();
@@ -3611,10 +3613,7 @@ function desgloseDeCatalogo(cod) {
 // entraba con el precio de fábrica mientras su desglose se construía con el
 // precio editado, y el P.U. dejaba de cuadrar con su propio desglose.
 // No materializa r.insumos: el panel lo construye cuando hace falta.
-function sincronizarFilaConCatalogo(r) {
-  if (r.libre || tienePUEditado(r)) return false;
-  const insumos = desgloseDeCatalogo(r.cod);
-  if (!insumos) return false;
+function aplicarTotalesDeInsumos(r, insumos) {
   let mat = 0, mo = 0, total = 0, matIVA = 0;
   insumos.forEach(i => {
     total += i.i || 0;
@@ -3624,7 +3623,30 @@ function sincronizarFilaConCatalogo(r) {
   });
   r.mat = round2(mat); r.matIVA = round2(matIVA);
   r.mo  = round2(mo);  r.p      = round2(total);
+}
+
+function sincronizarFilaConCatalogo(r) {
+  if (r.libre || tienePUEditado(r)) return false;
+  const insumos = desgloseDeCatalogo(r.cod);
+  if (!insumos) return false;
+  aplicarTotalesDeInsumos(r, insumos);
   return true;
+}
+
+// Al abrir un presupuesto, sus filas pueden traer un P.U. calculado con una
+// versión anterior del catálogo o de la app. Antes eso quedaba tapado porque el
+// desglose se escalaba hasta cuadrar con el P.U. guardado; ahora el desglose
+// sale del catálogo, así que el P.U. hay que rehacerlo o dejarían de cuadrar.
+// No se tocan las filas con precio tecleado a mano ni los conceptos libres, y
+// las que traen desglose propio conservan sus costos: solo se recompone la suma.
+function sincronizarFilasConCatalogo() {
+  PARTIDAS.forEach(([l]) => {
+    (STATE.rows[l] || []).forEach(r => {
+      if (r.libre || tienePUEditado(r)) return;
+      if (r.insumos && r.insumos.length) aplicarTotalesDeInsumos(r, r.insumos);
+      else sincronizarFilaConCatalogo(r);
+    });
+  });
 }
 
 // Básicos y cuadrillas que realmente usa este presupuesto, con cuántos

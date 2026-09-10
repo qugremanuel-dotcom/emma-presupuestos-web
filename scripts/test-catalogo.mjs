@@ -388,6 +388,38 @@ seccion('Básicos circulares');
     !api.creariaCiclo('10401-291', '302-CAL-0102'));
 }
 
+// ── 15. Un presupuesto guardado con otro catálogo cuadra al abrirlo ────────
+seccion('Abrir un presupuesto guardado con una versión anterior');
+{
+  const api = resetFabrica();
+  const MAT = '302-CEM-0102';
+  api.STATE.customMaterialCosts = { [MAT]: api.round2(FABRICA.dict[MAT][2] * 1.2) };
+
+  // Fila tal como la guardó una versión anterior: P.U. ligeramente distinto del
+  // que da el catálogo de hoy, sin desglose materializado y sin banderas.
+  const r = { cod: '10301-001', libre: false, qty: 1, p: 11.90 };
+  api.STATE.rows.A = [r];
+
+  api.refrescarCatalogoDelPresupuesto();
+  api.sincronizarFilasConCatalogo();
+
+  api.loadInsumosForRow(r);
+  const suma = api.round2((r.insumos || []).reduce((s, i) => s + Number(i.i || 0), 0));
+  ok('el P.U. guardado se pone al día y cuadra con su desglose',
+    cerca(r.p, suma),
+    `P.U. ${r.p}, desglose ${suma}`);
+
+  // Una fila con P.U. tecleado a mano NO se toca al abrir.
+  const api2 = resetFabrica();
+  const rm = { cod: '10301-001', libre: false, qty: 1, p: 77, pu_manual: true };
+  api2.STATE.rows.A = [rm];
+  api2.refrescarCatalogoDelPresupuesto();
+  api2.sincronizarFilasConCatalogo();
+  ok('un P.U. tecleado a mano sobrevive a abrir el presupuesto',
+    cerca(rm.p, 77),
+    `esperado 77, obtenido ${rm.p}`);
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);
