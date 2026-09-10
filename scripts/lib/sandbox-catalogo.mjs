@@ -44,6 +44,8 @@ const FUNCIONES = [
   'desgloseDeCatalogo',
   'sincronizarFilaConCatalogo',
   'recalcConceptFromInsumos',
+  'partesDeBasico',
+  'asegurarBasicoEditable',
   'basicosDelPresupuesto',
 ];
 

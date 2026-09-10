@@ -3560,7 +3560,7 @@ function propagarBasicos(codigosTocados) {
       if (!r.insumos.some(i => afectados.has(i.cod))) return;
 
       r.insumos.forEach(ins => {
-        if (ins.custom) return;                    // insumo escrito o editado a mano
+        if (ins.custom || ins.csManual) return;    // insumo escrito o costo puesto a mano
         if (!afectados.has(ins.cod)) return;        // no lo cambió esta edición
         const dict = I_DICT[ins.cod];
         if (dict) ins.cs = Number(dict[2] || 0);
@@ -4735,8 +4735,12 @@ function cuadrillaEditada(cod) { return !!(STATE.customCuadrillas || {})[cod]; }
 
 // Composición actual de un básico de obra (la editada si existe).
 function partesDeBasico(cod) {
-  const custom = (STATE.customBasicos || {})[cod];
-  const base = custom || I_BREAKDOWN[cod] || [];
+  // El catálogo vivo ya refleja la composición editada de este presupuesto:
+  // refrescarCatalogoDelPresupuesto vuelca STATE.customBasicos en I_BREAKDOWN
+  // con los costos al día. Leer customBasicos aquí mostraría los costos
+  // congelados en el momento de la edición, y la tarjeta diría un total
+  // distinto del que usan los conceptos y del que se imprime.
+  const base = I_BREAKDOWN[cod] || (STATE.customBasicos || {})[cod] || [];
   return base.map(i => {
     const dict = I_DICT[i.cod] || [i.c || '', i.u || '', i.cs || 0];
     return {
@@ -5163,6 +5167,10 @@ function propagateInsumoCost(cod, newCs) {
         if (i.cod !== cod || isGlobalMoPercentInsumo(i)) return;
         i.cs = newCs;
         if (i.t === 'O') i.custom = true; // evitar reset por recalcInsumoAmounts
+        // Costo puesto a mano: la propagación de básicos no debe pisarlo. Los
+        // insumos de tipo 'B' nunca reciben ins.custom, así que sin esta marca
+        // el costo se perdía al editar una cuadrilla que vive dentro del básico.
+        i.csManual = true;
         i.i = round2(i.op === '/' ? (i.q ? newCs / i.q : 0) : newCs * (i.q || 0));
         changed = true;
       });

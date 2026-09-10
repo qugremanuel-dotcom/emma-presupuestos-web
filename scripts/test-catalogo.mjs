@@ -317,6 +317,59 @@ seccion('Costo tecleado a mano en una línea de mano de obra');
   }
 }
 
+// ── 12. La tarjeta de Básicos no se queda congelada ────────────────────────
+seccion('La tarjeta de un básico editado muestra el total vigente');
+{
+  const api = resetFabrica();
+  const BAS = '10401-292';
+  // El usuario abre el básico y cambia una cantidad. asegurarBasicoEditable
+  // congela el costo de cada línea dentro de STATE.customBasicos.
+  const partes = api.asegurarBasicoEditable(BAS);
+  partes[0].q = Number(partes[0].q) * 1.5;
+  api.refrescarCatalogoDelPresupuesto();
+
+  // Después sube el precio de un material que vive dentro de ese básico. Las
+  // líneas de mano de obra se refrescarían solas; las de material no, así que
+  // es aquí donde la composición congelada se separa del catálogo.
+  const mat = api.I_BREAKDOWN[BAS].find(p => p.t === 'M');
+  ok('el básico de prueba lleva un material', !!mat);
+  api.STATE.customMaterialCosts[mat.cod] = api.round2(api.I_DICT[mat.cod][2] * 2);
+  api.refrescarCatalogoDelPresupuesto();
+
+  const enTarjeta = api.round2(
+    (() => { const ps = api.partesDeBasico(BAS); api.recalcInsumoAmounts(ps);
+             return ps.reduce((s, p) => s + Number(p.i || 0), 0); })());
+  ok('la tarjeta muestra el mismo total que el catálogo',
+    cerca(enTarjeta, api.I_DICT[BAS][2]),
+    `tarjeta ${enTarjeta}, catálogo ${api.I_DICT[BAS][2]}`);
+}
+
+// ── 13. Un costo de básico puesto a mano en un concepto se respeta ─────────
+seccion('Costo de básico ajustado a mano dentro de un concepto');
+{
+  const api = resetFabrica();
+  // 10301-001 lleva el básico 10401-291, que a su vez contiene la cuadrilla
+  // 1A5P. Hace falta esa cadena: si el básico no contiene la cuadrilla editada,
+  // la propagación ni lo mira y la prueba no comprobaría nada.
+  const r = filaDeConcepto(api, '10301-001');
+  const ins = (r.insumos || []).find(i => i.cod === '10401-291');
+  ok('el concepto de prueba lleva el básico que contiene la cuadrilla', !!ins);
+  if (ins) {
+    const aMano = 9999;
+    ins.cs = aMano;
+    ins.csManual = true;   // lo que marca propagateInsumoCost al teclear el costo
+
+    api.STATE.customCuadrillas['1A5P'] = api.CREW_COMPOSITION['1A5P']
+      .map((p, i) => i === 0 ? { ...p, q: Number(p.q) * 2 } : { ...p });
+    api.propagarBasicos(['1A5P']);
+
+    const despues = (api.STATE.rows.A[0].insumos || []).find(i => i.cod === ins.cod);
+    ok('editar una cuadrilla de dentro no pisa el costo tecleado',
+      cerca(despues.cs, aMano),
+      `tecleado ${aMano}, quedó ${despues.cs}`);
+  }
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);
