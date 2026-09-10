@@ -5,7 +5,7 @@
   "description": "Sitio comercial y demo de Emma Presupuestos Pro.",
   "scripts": {
     "start": "node server.js",
-    "test": "node scripts/smoke-test.mjs && node scripts/check-escapes.mjs",
+    "test": "node scripts/smoke-test.mjs && node scripts/check-escapes.mjs && node scripts/test-catalogo.mjs",
     "check-escapes": "node scripts/check-escapes.mjs",
     "import-db": "node scripts/import-db.mjs"
   },

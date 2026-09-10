@@ -2260,8 +2260,8 @@ async function startInit() {
   syncInsumoDescriptions(); // presupuestos guardados antes de un cambio de nombre
   ensureFasarBaseCosts();
   applyFasarDictionaryPrices();
-  applyCustomMaterialPrices();  // restaurar precios de materiales personalizados
-  refrescarCatalogoDelPresupuesto();  // basicos y cuadrillas propios, con su cascada
+  // Precios de material, básicos y cuadrillas propios, con su cascada.
+  refrescarCatalogoDelPresupuesto();
   hydrateMeta();
   hydrateFasar();
   bindMeta();
@@ -2687,7 +2687,6 @@ function restoreSnapshot(data) {
   STATE.customBasicos    = data.customBasicos    || {};
   STATE.customCuadrillas = data.customCuadrillas || {};
   applyFasarDictionaryPrices();
-  applyCustomMaterialPrices();
   refrescarCatalogoDelPresupuesto();
   if (data.active && NAME_BY_LETTER[data.active]) activePartida = data.active;
   syncInsumoDescriptions(); // el respaldo pudo guardarse con nombres anteriores
@@ -3370,31 +3369,24 @@ function applyFasarDictionaryPrices() {
 }
 
 // ── Precios de materiales personalizados ────────────────────────────────────
-// Aplica STATE.customMaterialCosts a I_DICT y recalcula básicos en I_BREAKDOWN
-// que usen esos materiales.
+// Escribe en I_DICT los precios de material propios de este presupuesto y
+// devuelve sus códigos para que la cascada recalcule los básicos que los usan.
+//
+// Solo toca los materiales. Antes recomputaba también los básicos con un bucle
+// propio de costo × cantidad: eso le daba a herramienta menor y equipo de
+// seguridad su precio de diccionario en vez del porcentaje sobre la mano de
+// obra, y aplastaba el costo específico de las líneas que lo traen a propósito.
+// recalcBasicosQueUsan ya sabe hacerlo bien, así que aquí no se duplica.
 function applyCustomMaterialPrices() {
   const custom = STATE.customMaterialCosts || {};
-  if (!Object.keys(custom).length) return;
-  // Paso 1: actualizar I_DICT para los materiales modificados
+  const tocados = new Set();
   Object.entries(custom).forEach(([cod, price]) => {
-    if (I_DICT[cod]) I_DICT[cod][2] = price;
+    if (!I_DICT[cod]) return;
+    recordarOriginal(cod);   // reversible: al abrir otra obra vuelve a fábrica
+    I_DICT[cod][2] = Number(price) || 0;
+    tocados.add(cod);
   });
-  // Paso 2: recomputar básicos en I_BREAKDOWN que usen alguno de esos materiales
-  const changedSet = new Set(Object.keys(custom));
-  Object.entries(I_BREAKDOWN).forEach(([basicCod, parts]) => {
-    if (!I_DICT[basicCod]) return;               // no es un insumo dict, skip
-    if (!parts.some(p => changedSet.has(p.cod))) return;  // no usa ningún material cambiado
-    let total = 0;
-    parts.forEach(p => {
-      const dict = I_DICT[p.cod];
-      const cs   = dict ? Number(dict[2] || 0) : (p.cs != null ? Number(p.cs) : 0);
-      const imp  = p.op === '/' ? (p.q ? cs / p.q : 0) : cs * (p.q || 0);
-      p.cs = round2(cs);
-      p.i  = round2(imp);
-      total += imp;
-    });
-    I_DICT[basicCod][2] = round2(total);
-  });
+  return tocados;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3449,19 +3441,25 @@ function recordarOriginal(cod) {
   });
 }
 
+// Devuelve el conjunto de códigos revertidos. Quien refresca el catálogo tiene
+// que sembrar la cascada con ellos: un básico que vuelve a su precio de fábrica
+// no "cambia" durante el recálculo, así que sin esta lista los conceptos que lo
+// usan se quedarían con el precio de la edición deshecha.
 function restaurarCatalogo() {
+  const revertidos = new Set(_catalogoTocado.keys());
   _catalogoTocado.forEach((orig, cod) => {
     if (orig.tenia) I_BREAKDOWN[cod] = orig.parts.map(p => ({ ...p }));
     else delete I_BREAKDOWN[cod];
     if (orig.costo !== null && I_DICT[cod]) I_DICT[cod][2] = orig.costo;
   });
   _catalogoTocado.clear();
+  return revertidos;
 }
 
-// Vuelca STATE.customBasicos sobre el catálogo, partiendo siempre del estado de
-// fábrica: así una obra nunca hereda las ediciones de la anterior.
+// Vuelca STATE.customBasicos sobre el catálogo. NO restaura por su cuenta: el
+// orden (fábrica → materiales → básicos → cascada) lo fija
+// refrescarCatalogoDelPresupuesto, que es el único punto de entrada.
 function applyCustomBasicos() {
-  restaurarCatalogo();
   const custom = STATE.customBasicos || {};
   Object.keys(custom).forEach(cod => {
     recordarOriginal(cod);
@@ -3526,9 +3524,17 @@ function crewPartsFor(cod) {
 // propaga en cascada. Es idempotente y TODO camino debe usarla: si una vista
 // llamara a applyCustomBasicos por su cuenta, borraría la cascada recién hecha.
 function refrescarCatalogoDelPresupuesto(codigosExtra) {
+  // Orden fijo: fábrica → precios de material de esta obra → básicos de esta
+  // obra → cuadrillas → cascada. Si los materiales se aplicaran antes de
+  // restaurar, la restauración los borraría; si se aplicaran después de la
+  // cascada, los básicos no los verían.
+  const revertidos = restaurarCatalogo();
+  const materiales = applyCustomMaterialPrices();
   applyCustomBasicos();
   recalcCrewDictionaryPrices();
   const semillas = new Set(codigosExtra || []);
+  revertidos.forEach(c => semillas.add(c));
+  materiales.forEach(c => semillas.add(c));
   Object.keys(STATE.customBasicos   || {}).forEach(c => semillas.add(c));
   Object.keys(STATE.customCuadrillas || {}).forEach(c => semillas.add(c));
   return recalcBasicosQueUsan(semillas);
@@ -3618,7 +3624,6 @@ function syncInsumoDescriptions() {
 
 // Propaga precios de materiales a I_DICT, básicos, filas del presupuesto y recalcula
 function applyCustomMaterialsToBudget() {
-  applyCustomMaterialPrices();
   refrescarCatalogoDelPresupuesto();   // un básico editado manda sobre el catálogo
   PARTIDAS.forEach(([l]) => {
     STATE.rows[l].forEach(r => {
