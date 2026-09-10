@@ -11,7 +11,7 @@
 //
 // Cada caso reproduce un defecto confirmado en la revisión del commit 34facb4.
 
-import { resetFabrica, diferenciasContraFabrica, FABRICA } from './lib/sandbox-catalogo.mjs';
+import { resetFabrica, diferenciasContraFabrica, FABRICA, FUENTE_HTML } from './lib/sandbox-catalogo.mjs';
 
 let fallos = 0;
 let grupo = '';
@@ -290,6 +290,28 @@ seccion('Un P.U. tecleado a mano manda sobre el catálogo');
     console.log(`  · hueco conocido: P.U. tecleado ${r.p}, desglose ${suma} ` +
       '(preexistente, no introducido por los básicos editables)');
   }
+
+  // Y la consecuencia completa de ese hueco: en cuanto el usuario toca el
+  // desglose, el precio que había tecleado se recompone desde unas líneas que
+  // ya perdieron el escalado, y se pierde. Se deja medido y a la vista.
+  const api2 = resetFabrica();
+  const f = { cod: '10301-001', libre: false, qty: 1 };
+  f.p = api2.round2(FABRICA.breakdown['10301-001'].reduce((s, p) => s + Number(p.i || 0), 0));
+  api2.STATE.rows.A = [f];
+  api2.onPUInput(0, '283.29');
+  const tecleado = f.p;
+  api2.loadInsumosForRow(f);
+  api2.recalcConceptFromInsumos(0);
+  if (!cerca(f.p, tecleado, 0.5)) {
+    console.log(`  · hueco conocido: tras tocar el desglose, el P.U. tecleado ${tecleado} ` +
+      `pasa a ${f.p} (preexistente; el escalado no sobrevive a recalcInsumoAmounts)`);
+  }
+  ok('al recomponer desde el desglose se suelta la marca de P.U. tecleado',
+    !f.pu_manual,
+    'la fila quedaría excluida de la propagación de básicos para siempre');
+  ok('y el P.U. recompuesto cuadra con su propio desglose',
+    cerca(f.p, api2.round2((f.insumos || []).reduce((s, i) => s + Number(i.i || 0), 0))),
+    `P.U. ${f.p}, desglose ${api2.round2((f.insumos || []).reduce((s, i) => s + Number(i.i || 0), 0))}`);
 }
 
 // ── 11. Un costo tecleado en una línea de mano de obra se respeta ──────────
@@ -409,17 +431,33 @@ seccion('El precio de la mano de obra llega a los básicos');
 seccion('Un precio de material propio llega a los básicos que lo usan');
 {
   const api = resetFabrica();
-  const BAS = '10401-291';
-  const mat = FABRICA.breakdown[BAS].find(p => p.t === 'M' && api.I_DICT[p.cod]);
-  ok('el básico de prueba lleva un material', !!mat);
-  if (mat) {
-    const antes = api.I_DICT[BAS][2];
-    api.STATE.customMaterialCosts = { [mat.cod]: api.round2(FABRICA.dict[mat.cod][2] * 2) };
-    api.refrescarCatalogoDelPresupuesto();
-    ok('el básico sube al subir el material',
-      api.I_DICT[BAS][2] > antes,
-      `antes ${antes}, después ${api.I_DICT[BAS][2]}`);
-  }
+  // Un básico SOLO de materiales: si llevara mano de obra, las cuadrillas —que
+  // se siembran siempre— lo recalcularían igual y la prueba no distinguiría si
+  // el precio del material llegó por su propia siembra o de rebote.
+  const BAS = '1:4';
+  const partes = FABRICA.breakdown[BAS] || [];
+  ok('el básico de prueba es solo de materiales',
+    partes.length > 0 && partes.every(p => p.t === 'M' && api.I_DICT[p.cod]));
+  const mat = partes[0];
+  const deFabrica = FABRICA.dict[BAS][2];
+
+  api.STATE.customMaterialCosts = { [mat.cod]: api.round2(FABRICA.dict[mat.cod][2] * 2) };
+  api.refrescarCatalogoDelPresupuesto();
+  ok('el básico sube al subir el material',
+    api.I_DICT[BAS][2] > deFabrica,
+    `antes ${deFabrica}, después ${api.I_DICT[BAS][2]}`);
+
+  // Y al abrir otra obra tiene que volver a fábrica. Un básico sin mano de obra
+  // no lo recalcula la siembra de cuadrillas, así que aquí solo lo salva el
+  // registro de reversión.
+  abrirOtraObra(api, {});
+  ok('y vuelve a fábrica al abrir otra obra',
+    cerca(api.I_DICT[BAS][2], deFabrica),
+    `esperado ${deFabrica}, obtenido ${api.I_DICT[BAS][2]}`);
+  const d = diferenciasContraFabrica();
+  ok('sin dejar nada contaminado en el catálogo',
+    d.dict.length === 0 && d.breakdown.length === 0,
+    `${d.dict.length} precios y ${d.breakdown.length} composiciones`);
 }
 
 // ── 22. Aislamiento con cuadrillas (la prueba 6 no las tocaba) ─────────────
@@ -675,13 +713,53 @@ seccion('Restablecer sobre un concepto libre');
     insumos: [{ t: 'M', cod: '', c: 'Partida escrita a mano', u: 'PZA', cs: 250, op: '*', q: 2, i: 500 }],
   };
   api.STATE.rows.A = [r];
-  // Núcleo de resetPrice para una fila libre.
-  if (!r.libre) delete r.insumos;
-  delete r.insumos_modified; delete r.pu_manual;
-  api.sincronizarFilaConCatalogo(r);
+  api.resetPrice(0);   // la función real, no una copia de su lógica
   ok('el desglose escrito a mano se conserva',
     !!(r.insumos && r.insumos.length),
     'se borró el APU y quedó el precio sin respaldo');
+
+  // Y sobre una fila normal sí debe rehacerse desde el catálogo.
+  const api2 = resetFabrica();
+  const n = { cod: '10301-001', libre: false, qty: 1, p: 999, insumos: [], insumos_modified: true };
+  api2.STATE.rows.A = [n];
+  api2.resetPrice(0);
+  const esperado = api2.round2(api2.desgloseDeCatalogo('10301-001').reduce((s, i) => s + Number(i.i || 0), 0));
+  ok('una fila normal vuelve al precio del catálogo',
+    cerca(n.p, esperado),
+    `esperado ${esperado}, obtenido ${n.p}`);
+}
+
+// ── 27. El cableado que no se puede simular ────────────────────────────────
+// Igual que scripts/check-escapes.mjs: hay arreglos que dependen de que una
+// llamada esté en su sitio, y la única forma de vigilarlos sin arrastrar medio
+// navegador al arnés es mirar el propio archivo.
+seccion('Cableado de las llamadas al catálogo');
+{
+  const cuerpoDe = nombre => {
+    const i = FUENTE_HTML.indexOf(`function ${nombre}(`);
+    if (i < 0) return null;
+    return FUENTE_HTML.slice(i, i + 3000);
+  };
+
+  const restore = cuerpoDe('restoreSnapshot');
+  ok('restoreSnapshot existe', !!restore);
+  ok('restoreSnapshot refresca el catálogo',
+    !!restore && restore.includes('refrescarCatalogoDelPresupuesto()'));
+  ok('restoreSnapshot pone al día las filas guardadas',
+    !!restore && restore.includes('sincronizarFilasConCatalogo()'),
+    'sin esa llamada, un presupuesto guardado abre con el P.U. descuadrado');
+
+  const arranque = cuerpoDe('startInit');
+  ok('el arranque pone al día las filas',
+    !!arranque && arranque.includes('sincronizarFilasConCatalogo()'));
+
+  // applyCustomMaterialPrices sólo debe llamarse desde el punto de entrada
+  // único: si vuelve a aparecer suelta, se rompe el orden fábrica → materiales
+  // → básicos → cascada y la restauración borra los precios de la obra nueva.
+  const llamadas = (FUENTE_HTML.match(/(?<!function\s)applyCustomMaterialPrices\(\)/g) || []).length;
+  ok('applyCustomMaterialPrices tiene un solo punto de llamada',
+    llamadas === 1,
+    `se la llama desde ${llamadas} sitios; debe ser solo refrescarCatalogoDelPresupuesto`);
 }
 
 console.log('');

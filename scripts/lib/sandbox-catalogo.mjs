@@ -50,6 +50,7 @@ const FUNCIONES = [
   'recalcConceptFromInsumos',
   'creariaCiclo',
   'partesDeBasico',
+  'resetPrice',
   'onBasicoPartPick',
   'parseCatalogValue',
   'asegurarBasicoEditable',
@@ -125,6 +126,24 @@ function save() {}
 function calcularPresupuesto() {}
 function toast() {}
 function renderBasicosList() {}
+let activePartida = 'A';
+function recalcTotals() {}
+function renderPanel() {}
+function renderSidebar() {}
+const document = { getElementById() { return null; } };
+function puForRow(r) { return Number(r.p || 0); }
+function fmt(n) { return String(n); }
+const currentFactor = 1;
+let activeInsumos = null;
+function recalcAfterEdit() {}
+function onPUInput(idx, val) {
+  const r = STATE.rows[activePartida][idx];
+  const n = parseFloat(val);
+  const safe = isNaN(n) ? 0 : Math.max(0, n);
+  r.pu_manual = true;
+  if (!r.libre && r.p_orig == null) { r.p_orig = r.p; r.mat_orig = r.mat; r.mo_orig = r.mo; }
+  r.p = safe;
+}
 function render() {}
 function recalcRowFromCurrentInsumos() {}
 function syncInsumoDescriptions() { return 0; }
@@ -147,6 +166,7 @@ globalThis.__api = {
   STATE,
   CREW_COMPOSITION,
   round2,
+  onPUInput,
   ${FUNCIONES.join(',\n  ')}
 };
 `;
@@ -258,3 +278,6 @@ export function sumaDesglose(cod) {
 }
 
 export { api };
+
+/** El texto del HTML, para comprobar cableado que no se puede simular. */
+export const FUENTE_HTML = html;
