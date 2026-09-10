@@ -3750,7 +3750,10 @@ function recalcInsumoAmounts(insumos) {
   const list = insumos || [];
   list.forEach(i => {
     if (isGlobalMoPercentInsumo(i)) return;
-    if (i.t === 'O' && i.cod && I_DICT[i.cod] && !i.custom) i.cs = Number(I_DICT[i.cod][2] || 0);
+    // csManual: costo tecleado en una línea de un básico. Sin esta guarda, el
+    // valor se reponía del diccionario en el mismo evento y no había forma de
+    // ajustar a mano el costo de una cuadrilla dentro de un básico.
+    if (i.t === 'O' && i.cod && I_DICT[i.cod] && !i.custom && !i.csManual) i.cs = Number(I_DICT[i.cod][2] || 0);
     i.i = round2(i.op === '/' ? (i.q ? Number(i.cs || 0) / i.q : 0) : Number(i.cs || 0) * Number(i.q || 0));
   });
   const moBase = round2(list.reduce((sum, i) => {
@@ -5098,6 +5101,10 @@ function recalcConceptFromInsumos(rowIdx) {
   r.mo  = round2(mo + equipo);
   r.p   = round2(total);
   r.insumos_modified = true;
+  // El precio vuelve a salir del desglose, así que ya no es un P.U. tecleado.
+  // Sin esto la fila quedaba excluida para siempre de la propagación de
+  // básicos, sin ninguna marca en pantalla que lo explicara.
+  delete r.pu_manual;
   // Surgical update: P.U. input, importe cell, sub line, drawer summary
   const elPU = document.getElementById(`pu-${rowIdx}`);
   if (elPU) {

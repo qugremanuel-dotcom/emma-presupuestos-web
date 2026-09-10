@@ -292,6 +292,31 @@ seccion('Un P.U. tecleado a mano manda sobre el catálogo');
   }
 }
 
+// ── 11. Un costo tecleado en una línea de mano de obra se respeta ──────────
+seccion('Costo tecleado a mano en una línea de mano de obra');
+{
+  const api = resetFabrica();
+  const partes = FABRICA.breakdown['10401-291'].map(p => ({ ...p }));
+  const iMO = partes.findIndex(p => p.t === 'O' && api.I_DICT[p.cod]);
+  ok('el básico de prueba tiene una línea de mano de obra', iMO >= 0);
+  if (iMO >= 0) {
+    const dePedido = 1000;
+    partes[iMO] = { ...partes[iMO], cs: dePedido, csManual: true };
+    api.recalcInsumoAmounts(partes);
+    ok('el costo tecleado sobrevive al recálculo',
+      cerca(partes[iMO].cs, dePedido),
+      `tecleado ${dePedido}, quedó ${partes[iMO].cs} (diccionario ${api.I_DICT[partes[iMO].cod][2]})`);
+
+    // Y una línea de mano de obra SIN marcar sí debe seguir al diccionario.
+    const otras = partes.filter((p, k) => k !== iMO && p.t === 'O' && api.I_DICT[p.cod] && !p.csManual);
+    otras.forEach(p => {
+      ok(`${p.cod} sin marcar sigue tomando el precio del diccionario`,
+        cerca(p.cs, api.I_DICT[p.cod][2]),
+        `cs=${p.cs}, diccionario=${api.I_DICT[p.cod][2]}`);
+    });
+  }
+}
+
 console.log('');
 if (fallos) {
   console.log(`${fallos} comprobación(es) fallaron.`);
