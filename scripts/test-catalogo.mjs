@@ -561,12 +561,13 @@ seccion('Básicos circulares');
   ok('un básico no se acepta dentro de sí mismo',
     api.creariaCiclo('10401-291', '10401-291'));
 
-  // Ciclo indirecto: 10301-001 contiene 10401-291, así que meter 10301-001
-  // dentro de 10401-291 cerraría el círculo.
-  const contiene = (FABRICA.breakdown['10301-001'] || []).some(p => p.cod === '10401-291');
+  // Caso alcanzable desde la interfaz: el básico 10401-304 contiene al básico
+  // 10401-294, así que meter el 304 dentro del 294 cerraría el círculo. Ambos
+  // están en I_DICT, que es la condición para poder elegirlos en una línea.
+  const contiene = (FABRICA.breakdown['10401-304'] || []).some(p => p.cod === '10401-294');
   ok('el caso de prueba tiene la cadena esperada', contiene);
-  ok('se detecta el ciclo indirecto',
-    api.creariaCiclo('10401-291', '10301-001'));
+  ok('se detecta el ciclo entre dos básicos',
+    api.creariaCiclo('10401-294', '10401-304'));
 
   ok('un insumo normal sí se acepta',
     !api.creariaCiclo('10401-291', '302-CAL-0102'));
@@ -643,6 +644,44 @@ seccion('Actualizar precios de materiales en el presupuesto');
   ok('el precio nuevo del material sí llegó al P.U.',
     !cerca(sinAbrir.p, deFabrica),
     `fábrica ${deFabrica}, obtenido ${sinAbrir.p}`);
+}
+
+// ── 25. Un pick rechazado no deja el básico marcado como editado ───────────
+seccion('Un pick rechazado por ciclo no ensucia el presupuesto');
+{
+  const api = resetFabrica();
+  const BAS = '10401-294';
+  // El básico 10401-304 contiene al 294: elegirlo aquí cerraría el círculo.
+  // Se pasa por su descripción, que es como llega desde el desplegable.
+  api.onBasicoPartPick(BAS, 0, api.I_DICT['10401-304'][0]);
+  ok('el básico NO queda marcado como editado',
+    !(api.STATE.customBasicos || {})[BAS],
+    'quedó una personalización que el usuario no pidió');
+
+  // Y un pick que no cambia nada tampoco debe marcarlo.
+  const api2 = resetFabrica();
+  const actual = api2.I_BREAKDOWN[BAS][0];
+  api2.onBasicoPartPick(BAS, 0, api2.I_DICT[actual.cod][0]);
+  ok('un pick que elige el mismo insumo tampoco lo marca',
+    !(api2.STATE.customBasicos || {})[BAS]);
+}
+
+// ── 26. «Restablecer» no borra el desglose de un concepto libre ────────────
+seccion('Restablecer sobre un concepto libre');
+{
+  const api = resetFabrica();
+  const r = {
+    cod: 'LIBRE-1', libre: true, qty: 1, p: 500,
+    insumos: [{ t: 'M', cod: '', c: 'Partida escrita a mano', u: 'PZA', cs: 250, op: '*', q: 2, i: 500 }],
+  };
+  api.STATE.rows.A = [r];
+  // Núcleo de resetPrice para una fila libre.
+  if (!r.libre) delete r.insumos;
+  delete r.insumos_modified; delete r.pu_manual;
+  api.sincronizarFilaConCatalogo(r);
+  ok('el desglose escrito a mano se conserva',
+    !!(r.insumos && r.insumos.length),
+    'se borró el APU y quedó el precio sin respaldo');
 }
 
 console.log('');
